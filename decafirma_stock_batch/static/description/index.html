@@ -1,0 +1,47 @@
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan" style="color:#1f2937;">DecaFirma Delivery Routes</h2>
+        <h3 class="oe_slogan">A batch of outgoing transfers is a delivery route: one DeCA for all the stops</h3>
+        <p style="font-size:16px; max-width:820px; margin:0 auto;">
+            Spanish road freight rules allow a single electronic control document (DeCA) for a whole delivery route
+            when every stop has the same shipper and the same carrier (Resolution of 5 June 2026, section six).
+            This module issues an Inventory batch transfer as that route in DecaFirma.
+        </p>
+        <div class="oe_demo oe_picture oe_screenshot">
+            <img src="ruta.png" alt="Batch transfer with the DecaFirma tab: route truck, driver and the route DeCA"/>
+        </div>
+        <ul style="font-size:15px; max-width:820px; margin:24px auto 0;">
+            <li>Plate, trailer and driver once, for the whole route.</li>
+            <li>One DeCA for the route, with its QR code on the batch and on every transfer.</li>
+            <li>Optionally, one delivery note per stop, signed on their phone by whoever receives the goods.</li>
+            <li>Added transfers to the batch? “Añadir las paradas nuevas a la ruta” issues the DeCA as a new version with the
+                same QR code. Removed some? The route is updated too.</li>
+        </ul>
+    </div>
+</section>
+
+<section class="oe_container oe_dark">
+    <div class="oe_row oe_spaced">
+        <h3 class="oe_slogan">Data sent to DecaFirma</h3>
+        <p style="font-size:15px; max-width:820px; margin:0 auto;">
+            Nothing leaves Odoo until you enter your own DecaFirma API key in Settings. When a route is issued or updated,
+            Odoo sends DecaFirma the data the DeCA requires for every stop: names, tax IDs (NIF) and addresses of your
+            company, the customers, the carrier and the driver, vehicle plates, products, packages and weights.
+        </p>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h3 class="oe_slogan">Requirements</h3>
+        <ul style="font-size:15px; max-width:820px; margin:0 auto;">
+            <li><code>decafirma_stock</code> (DecaFirma Inventory) and <i>Batch Transfers</i> (<code>stock_picking_batch</code>).
+                This module is installed automatically when both are.</li>
+            <li>A DecaFirma account with API access (paid plans). The module itself is free.</li>
+            <li>The user interface is in Spanish: the DeCA is a Spanish legal document.</li>
+        </ul>
+        <p style="font-size:15px; max-width:820px; margin:16px auto 0;">
+            Questions? <a href="mailto:juan.canton@francodesystems.com">juan.canton@francodesystems.com</a> · Francodesystems
+        </p>
+    </div>
+</section>

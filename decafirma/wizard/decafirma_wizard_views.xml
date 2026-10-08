@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="decafirma_wizard_view_form" model="ir.ui.view">
+        <field name="name">decafirma.wizard.form</field>
+        <field name="model">decafirma.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <field name="accion" invisible="1"/>
+                <group>
+                    <field name="document_id" readonly="1"/>
+                    <field name="motivo" invisible="accion != 'anular'" required="accion == 'anular'" placeholder="El cliente cancela el porte"/>
+                    <field name="correo" invisible="accion != 'enviar'" required="accion == 'enviar'" widget="email"/>
+                    <field name="con_el_otro" invisible="accion != 'enviar'"/>
+                </group>
+                <p class="text-muted" invisible="accion != 'anular'">
+                    No se borra nada: sale una versión con la marca de anulado y el motivo, y quien escanee el QR ve que ya no ampara nada.
+                    Un albarán firmado también se puede anular (y se emite otro).
+                </p>
+                <footer>
+                    <button name="action_confirmar" type="object" string="Anular" class="btn-primary" invisible="accion != 'anular'"/>
+                    <button name="action_confirmar" type="object" string="Mandar" class="btn-primary" invisible="accion != 'enviar'"/>
+                    <button string="Cancelar" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
