@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_decafirma" model="ir.ui.view">
+        <field name="name">stock.picking.form.decafirma</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <field name="decafirma_visible" invisible="1"/>
+                <field name="decafirma_has_deca" invisible="1"/>
+                <field name="decafirma_has_albaran" invisible="1"/>
+                <field name="decafirma_shipment_id" invisible="1"/>
+                <button name="action_decafirma_emitir_ambos" type="object" groups="decafirma.group_decafirma_user" string="Emitir DeCA y albarán" class="btn-secondary"
+                        invisible="not decafirma_visible or decafirma_has_deca or decafirma_has_albaran"/>
+                <button name="action_decafirma_emitir_deca" type="object" groups="decafirma.group_decafirma_user" string="Emitir DeCA" class="btn-secondary"
+                        invisible="not decafirma_visible or decafirma_has_deca"/>
+                <button name="action_decafirma_emitir_albaran" type="object" groups="decafirma.group_decafirma_user" string="Emitir albarán" class="btn-secondary"
+                        invisible="not decafirma_visible or decafirma_has_albaran or not decafirma_has_deca"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_decafirma_ver_deca" type="object" class="oe_stat_button" icon="qr_code" invisible="not decafirma_deca_url">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">DeCA</span>
+                    </div>
+                </button>
+                <field name="decafirma_deca_url" invisible="1"/>
+                <!-- El albarán: «Por firmar» abre el del QR; «Firmado», el PDF firmado que ha vuelto. -->
+                <button name="action_decafirma_ver_albaran" type="object" class="oe_stat_button" icon="edit_square" invisible="not decafirma_has_albaran">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Albarán</span>
+                        <span class="o_stat_text text-success" invisible="not decafirma_signed">Firmado</span>
+                        <span class="o_stat_text text-muted" invisible="decafirma_signed">Por firmar</span>
+                    </div>
+                </button>
+            </xpath>
+            <xpath expr="//div[hasclass('oe_title')]" position="before">
+                <div class="alert alert-warning" role="alert" invisible="not decafirma_error">
+                    <strong>DecaFirma: </strong><field name="decafirma_error" class="d-inline"/>
+                </div>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="DecaFirma" name="decafirma" invisible="not decafirma_visible">
+                    <group>
+                        <group string="Camión">
+                            <field name="decafirma_plate" placeholder="1234KLM"/>
+                            <field name="decafirma_trailer" placeholder="R1234BCD"/>
+                            <field name="decafirma_driver_id" options="{'no_quick_create': True}"/>
+                        </group>
+                        <group string="Quién">
+                            <field name="decafirma_carrier_id" placeholder="Nosotros" options="{'no_quick_create': True}"/>
+                            <field name="decafirma_shipper_id" placeholder="Lo de Ajustes" options="{'no_quick_create': True}"/>
+                            <field name="decafirma_goods" placeholder="Los productos del albarán"/>
+                        </group>
+                    </group>
+                    <div invisible="not decafirma_shipment_id" class="mb-2">
+                        <field name="decafirma_state" widget="badge" decoration-success="decafirma_state in ('documented', 'delivered')"/>
+                        <field name="decafirma_signed" invisible="1"/>
+                        <span invisible="not decafirma_signed" class="ms-2 text-success">Albarán firmado</span>
+                    </div>
+                    <field name="decafirma_document_ids" readonly="1" invisible="not decafirma_shipment_id"/>
+                    <field name="decafirma_papel_ids" readonly="1" invisible="not decafirma_papel_ids"/>
+                    <div class="d-flex gap-2 mt-2" invisible="not decafirma_shipment_id">
+                        <button name="action_decafirma_corregir" type="object" groups="decafirma.group_decafirma_user" string="Llevar los cambios a DecaFirma" icon="send"
+                                help="Si has cambiado algo (peso, matrícula, cliente…), sale la versión nueva con el mismo QR."/>
+                        <button name="action_decafirma_enviar" type="object" groups="decafirma.group_decafirma_user" string="Mandar al conductor" icon="mail"/>
+                        <button name="action_decafirma_actualizar" type="object" groups="decafirma.group_decafirma_user" string="Actualizar" icon="arrow_forward"/>
+                    </div>
+                    <p class="text-muted mt-2" invisible="decafirma_shipment_id">
+                        El DeCA sale con el cliente, el almacén y los productos de este albarán. Pon la matrícula y el conductor
+                        antes de emitir: sin ellos el DeCA no sale.
+                    </p>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="vpicktree_decafirma" model="ir.ui.view">
+        <field name="name">stock.picking.list.decafirma</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.vpicktree"/>
+        <field name="arch" type="xml">
+            <field name="origin" position="after">
+                <field name="decafirma_state" optional="show" widget="badge" string="DecaFirma"
+                       decoration-success="decafirma_state in ('documented', 'delivered')" decoration-warning="decafirma_state == 'draft'"/>
+                <field name="decafirma_signed" optional="hide"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_picking_internal_search_decafirma" model="ir.ui.view">
+        <field name="name">stock.picking.search.decafirma</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_internal_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[1]" position="before">
+                <filter name="decafirma_sin_deca" string="Salidas sin DeCA"
+                        domain="[('picking_type_code', '=', 'outgoing'), ('decafirma_shipment_id', '=', False), ('state', 'not in', ('draft', 'cancel'))]"/>
+                <filter name="decafirma_sin_firmar" string="Albarán sin firmar"
+                        domain="[('decafirma_shipment_id.state', '=', 'documented'), ('decafirma_shipment_id.signed', '=', False)]"/>
+                <filter name="decafirma_con_reservas" string="Firmado con reservas"
+                        domain="[('decafirma_shipment_id.document_ids.signed_remarks', '!=', False)]"/>
+                <separator/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="stock_picking_action_decafirma_emitir" model="ir.actions.server">
+        <field name="name">Emitir DeCA en DecaFirma</field>
+        <field name="model_id" ref="stock.model_stock_picking"/>
+        <field name="binding_model_id" ref="stock.model_stock_picking"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="group_ids" eval="[(4, ref('decafirma.group_decafirma_user'))]"/>
+        <field name="code">action = records.action_decafirma_emitir_deca()</field>
+    </record>
+
+    <menuitem id="menu_decafirma_envios" name="Envíos en DecaFirma" parent="stock.menu_stock_warehouse_mgmt"
+              action="decafirma.decafirma_shipment_action" sequence="90"/>
+    <menuitem id="menu_decafirma_papeles" name="Papeles del porte" parent="stock.menu_stock_warehouse_mgmt"
+              action="decafirma.decafirma_papel_action" sequence="91"/>
+</odoo>

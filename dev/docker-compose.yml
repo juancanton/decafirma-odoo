@@ -1,0 +1,13 @@
+# Odoo de esta rama, para probar los módulos. En la rama 20.0: odoo:20.0.
+services:
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: odoo, POSTGRES_PASSWORD: odoo, POSTGRES_DB: postgres }
+    volumes: [db:/var/lib/postgresql/data]
+  odoo:
+    image: odoo:20.0
+    depends_on: [db]
+    ports: ["8169:8069"]
+    environment: { HOST: db, USER: odoo, PASSWORD: odoo }
+    volumes: [data:/var/lib/odoo, ..:/mnt/extra-addons]
+volumes: { db: {}, data: {} }

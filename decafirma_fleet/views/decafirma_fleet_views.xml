@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="stock_picking_form_decafirma_fleet" model="ir.ui.view">
+        <field name="name">stock.picking.form.decafirma.fleet</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="decafirma_stock.view_picking_form_decafirma"/>
+        <field name="arch" type="xml">
+            <field name="decafirma_plate" position="before">
+                <field name="decafirma_vehicle_id" options="{'no_quick_create': True}"/>
+            </field>
+            <field name="decafirma_trailer" position="before">
+                <field name="decafirma_trailer_vehicle_id" options="{'no_quick_create': True}"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="stock_picking_batch_form_decafirma_fleet" model="ir.ui.view">
+        <field name="name">stock.picking.batch.form.decafirma.fleet</field>
+        <field name="model">stock.picking.batch</field>
+        <field name="inherit_id" ref="decafirma_stock.stock_picking_batch_form_decafirma"/>
+        <field name="arch" type="xml">
+            <field name="decafirma_plate" position="before">
+                <field name="decafirma_vehicle_id" options="{'no_quick_create': True}"/>
+            </field>
+            <field name="decafirma_trailer" position="before">
+                <field name="decafirma_trailer_vehicle_id" options="{'no_quick_create': True}"/>
+            </field>
+        </field>
+    </record>
+</odoo>

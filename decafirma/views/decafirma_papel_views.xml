@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="decafirma_papel_view_list" model="ir.ui.view">
+        <field name="name">decafirma.papel.list</field>
+        <field name="model">decafirma.papel</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0" decoration-muted="facturado">
+                <field name="subido_at"/>
+                <field name="origen_ref" optional="show"/>
+                <field name="tipo"/>
+                <field name="numero"/>
+                <field name="emisor" optional="show"/>
+                <field name="fecha" optional="hide"/>
+                <field name="peso_neto_kg" sum="Total"/>
+                <field name="subido_por" optional="show"/>
+                <field name="leido" optional="hide"/>
+                <field name="facturado" widget="boolean_toggle" readonly="1" optional="show"/>
+                <field name="facturado_at" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <button name="action_ver_foto" type="object" string="Foto" icon="photo_camera"/>
+                <button name="action_marcar_facturado" type="object" groups="decafirma.group_decafirma_user"
+                        string="Marcar facturado" icon="check" invisible="facturado"/>
+                <button name="action_marcar_pendiente" type="object" groups="decafirma.group_decafirma_user"
+                        string="Volver a pendiente" icon="undo" invisible="not facturado"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="decafirma_papel_view_search" model="ir.ui.view">
+        <field name="name">decafirma.papel.search</field>
+        <field name="model">decafirma.papel</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="numero"/>
+                <field name="emisor"/>
+                <field name="origen_ref"/>
+                <filter name="pendientes" string="Pendientes de facturar" domain="[('facturado', '=', False)]"/>
+                <filter name="facturados" string="Facturados" domain="[('facturado', '=', True)]"/>
+                <separator/>
+                <filter name="sin_leer" string="Sin leer" domain="[('leido', '=', False)]"/>
+                <filter name="subido" string="Subido el" date="subido_at"/>
+                <group>
+                    <filter name="por_mes" string="Mes" context="{'group_by': 'subido_at:month'}"/>
+                    <filter name="por_emisor" string="Emisor" context="{'group_by': 'emisor'}"/>
+                    <filter name="por_tipo" string="Tipo" context="{'group_by': 'tipo'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="decafirma_papel_action" model="ir.actions.act_window">
+        <field name="name">Papeles del porte</field>
+        <field name="res_model">decafirma.papel</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_pendientes': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aún no ha llegado ningún papel del porte</p>
+            <p>Cuando el conductor hace una foto a la carta de porte o al ticket de báscula en DecaFirma, llega aquí con el
+                número y el peso leídos, lista para facturar. Va con los planes de DecaFirma que llevan papeles.</p>
+        </field>
+    </record>
+
+    <record id="decafirma_papel_marcar_facturados" model="ir.actions.server">
+        <field name="name">Marcar facturados</field>
+        <field name="model_id" ref="model_decafirma_papel"/>
+        <field name="binding_model_id" ref="model_decafirma_papel"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="group_ids" eval="[(4, ref('decafirma.group_decafirma_user'))]"/>
+        <field name="code">records.action_marcar_facturado()</field>
+    </record>
+</odoo>
