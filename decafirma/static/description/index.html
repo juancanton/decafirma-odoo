@@ -1,0 +1,55 @@
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h2 class="oe_slogan" style="color:#1f2937;">DecaFirma Connector</h2>
+        <h3 class="oe_slogan">The base to issue the Spanish e-CMR (DeCA) and signed delivery notes from Odoo</h3>
+        <p style="font-size:16px; max-width:820px; margin:0 auto;">
+            Stores the connection with DecaFirma (API key and webhooks), the shipments and their documents
+            (QR code, version, status, PDF and who signed) and keeps them up to date on its own.
+            It does nothing by itself: install <b>DecaFirma Inventory</b> (<code>decafirma_stock</code>)
+            to issue documents from your outgoing transfers.
+        </p>
+        <div class="oe_demo oe_picture oe_screenshot">
+            <img src="ajustes.png" alt="DecaFirma settings"/>
+        </div>
+        <ul style="font-size:15px; max-width:820px; margin:24px auto 0;">
+            <li>Settings: the DecaFirma API key, a connection test and the webhook set up with one button.</li>
+            <li>One record per DecaFirma shipment, linked to its origin (an Inventory transfer, a TMS service…),
+                with its documents: QR code, version, status, PDF and signer.</li>
+            <li>Sign Odoo's own delivery slip: the usual PDF goes out, the customer signs it on their phone and it
+                comes back signed, attached to the transfer.</li>
+            <li>Access rights as in DecaFirma: <i>DecaFirma / Usuario</i> (user) issues, corrects and sends;
+                <i>DecaFirma / Responsable</i> (manager) can also cancel. DecaFirma shows who did it.</li>
+            <li>Transport papers: the photo of the consignment note or weighbridge ticket, with its number and net weight,
+                attached to the transfer and ready to invoice (DecaFirma plans with papers).</li>
+            <li>Signed webhooks (HMAC) for every signature, new version or cancellation, plus a scheduled
+                action every 15 minutes in case one is missed.</li>
+        </ul>
+    </div>
+</section>
+
+<section class="oe_container oe_dark">
+    <div class="oe_row oe_spaced">
+        <h3 class="oe_slogan">Data sent to DecaFirma</h3>
+        <p style="font-size:15px; max-width:820px; margin:0 auto;">
+            Nothing leaves Odoo until you enter your own DecaFirma API key in Settings. From then on, only when a user
+            issues, corrects, cancels or sends a document, Odoo sends DecaFirma the data the DeCA requires: company,
+            customer, carrier and driver names, tax IDs (NIF) and addresses, vehicle plates, products, packages and
+            weights, and the delivery slip PDF when you ask for it to be signed. DecaFirma sends back the QR code,
+            the PDFs and the signatures. Remove the API key to stop it.
+        </p>
+    </div>
+</section>
+
+<section class="oe_container">
+    <div class="oe_row oe_spaced">
+        <h3 class="oe_slogan">Requirements</h3>
+        <ul style="font-size:15px; max-width:820px; margin:0 auto;">
+            <li>A DecaFirma account with API access (paid plans). The module itself is free.</li>
+            <li>The user interface is in Spanish: the DeCA is a Spanish legal document
+                (Orden FOM/2861/2012, mandatory for road freight in Spain from 5 October 2026).</li>
+        </ul>
+        <p style="font-size:15px; max-width:820px; margin:16px auto 0;">
+            Questions? <a href="mailto:juan.canton@francodesystems.com">juan.canton@francodesystems.com</a> · Francodesystems
+        </p>
+    </div>
+</section>

@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_decafirma_shipment_user,decafirma.shipment user,model_decafirma_shipment,base.group_user,1,0,0,0
+access_decafirma_shipment_system,decafirma.shipment system,model_decafirma_shipment,base.group_system,1,0,1,1
+access_decafirma_document_user,decafirma.document user,model_decafirma_document,base.group_user,1,0,0,0
+access_decafirma_document_system,decafirma.document system,model_decafirma_document,base.group_system,1,0,1,1
+access_decafirma_wizard_user,decafirma.wizard user,model_decafirma_wizard,group_decafirma_user,1,0,1,1
+access_decafirma_papel_user,decafirma.papel user,model_decafirma_papel,base.group_user,1,0,0,0
+access_decafirma_papel_system,decafirma.papel system,model_decafirma_papel,base.group_system,1,1,1,1

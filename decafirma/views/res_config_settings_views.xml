@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_decafirma" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.decafirma</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="96"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="DecaFirma" id="decafirma" string="DecaFirma" name="decafirma" groups="base.group_system">
+                    <block title="Conexión" id="decafirma_conexion">
+                        <setting string="Clave de la API" help="Se crea en DecaFirma: Configuración &gt; Conectar tu programa (API). Empieza por dfk_. La API va en los planes de pago.">
+                            <div class="content-group mt16">
+                                <div class="row">
+                                    <label for="decafirma_api_key" string="Clave" class="col-lg-3 o_light_label"/>
+                                    <field name="decafirma_api_key" password="True"/>
+                                </div>
+                                <div class="row">
+                                    <label for="decafirma_url" string="Dirección" class="col-lg-3 o_light_label"/>
+                                    <field name="decafirma_url"/>
+                                </div>
+                                <button name="action_decafirma_probar" type="object" string="Probar la conexión" class="btn-link" icon="fa-arrow-right"/>
+                            </div>
+                        </setting>
+                        <setting string="Avisos al momento" help="Cuando el cliente firma el albarán, o un documento sale en versión nueva o se anula, DecaFirma avisa a Odoo. Esta base tiene que ser accesible desde internet; si no, se pone al día cada 15 minutos.">
+                            <div class="content-group mt16">
+                                <div invisible="not decafirma_webhook_url">
+                                    <span class="text-muted">Conectados a </span><field name="decafirma_webhook_url" class="d-inline"/>
+                                </div>
+                                <button name="action_decafirma_conectar_avisos" type="object" string="Conectar avisos" class="btn-link" icon="fa-arrow-right" invisible="decafirma_webhook_url"/>
+                                <button name="action_decafirma_conectar_avisos" type="object" string="Volver a conectar" class="btn-link" invisible="not decafirma_webhook_url"/>
+                                <button name="action_decafirma_quitar_avisos" type="object" string="Quitar" class="btn-link" invisible="not decafirma_webhook_url"/>
+                                <div class="mt8">
+                                    <span class="text-muted">Última puesta al día: </span><field name="decafirma_last_sync" class="d-inline"/>
+                                    <button name="action_decafirma_poner_al_dia" type="object" string="Ponerse al día ahora" class="btn-link"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Albarán" id="decafirma_albaran">
+                        <setting string="Firmar el albarán de Odoo" help="Se firma el PDF del albarán de Odoo, el de siempre: DecaFirma le pone detrás su hoja con el QR y, al firmar, la conformidad. El PDF firmado vuelve solo y queda adjunto al albarán.">
+                            <field name="decafirma_pdf_odoo"/>
+                        </setting>
+                        <setting string="Número del albarán de Odoo" help="El albarán de DecaFirma lleva el número del de Odoo (p. ej. WH/OUT/00012). Si no, la numeración de DecaFirma." invisible="decafirma_pdf_odoo">
+                            <field name="decafirma_numero_odoo"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="decafirma_config_settings_action" model="ir.actions.act_window">
+        <field name="name">Ajustes de DecaFirma</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="context">{'module': 'decafirma', 'bin_size': False}</field>
+    </record>
+</odoo>

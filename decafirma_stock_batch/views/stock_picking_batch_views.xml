@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="stock_picking_batch_form_decafirma" model="ir.ui.view">
+        <field name="name">stock.picking.batch.form.decafirma</field>
+        <field name="model">stock.picking.batch</field>
+        <field name="inherit_id" ref="stock_picking_batch.stock_picking_batch_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <field name="decafirma_visible" invisible="1"/>
+                <field name="decafirma_route_id" invisible="1"/>
+                <field name="decafirma_pendientes" invisible="1"/>
+                <button name="action_decafirma_emitir_ruta" type="object" groups="decafirma.group_decafirma_user" string="Emitir la ruta en DecaFirma" class="btn-secondary"
+                        invisible="not decafirma_visible or decafirma_route_id"/>
+                <button name="action_decafirma_emitir_ruta" type="object" groups="decafirma.group_decafirma_user" string="Añadir las paradas nuevas a la ruta" class="btn-secondary"
+                        invisible="not decafirma_route_id or not decafirma_pendientes"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_decafirma_ver_deca" type="object" class="oe_stat_button" icon="fa-qrcode" invisible="not decafirma_deca_url">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">DeCA de la ruta</span>
+                        <span class="o_stat_text"><field name="decafirma_deca_ref" class="d-inline"/></span>
+                    </div>
+                </button>
+                <field name="decafirma_deca_url" invisible="1"/>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="DecaFirma" name="decafirma" invisible="not decafirma_visible">
+                    <div class="alert alert-warning" role="alert" invisible="not decafirma_error">
+                        <field name="decafirma_error"/>
+                    </div>
+                    <group>
+                        <group string="Camión de la ruta">
+                            <field name="decafirma_plate" placeholder="1234KLM"/>
+                            <field name="decafirma_trailer"/>
+                            <field name="decafirma_driver_id" options="{'no_quick_create': True}"/>
+                        </group>
+                        <group string="Ruta">
+                            <field name="decafirma_albaranes"/>
+                            <field name="decafirma_deca_ref" invisible="not decafirma_route_id"/>
+                            <field name="decafirma_deca_version" invisible="not decafirma_route_id"/>
+                        </group>
+                    </group>
+                    <p class="text-muted">
+                        Un solo DeCA para todas las paradas (mismo cargador y mismo transportista) y, si lo marcas, un albarán por
+                        parada que firma quien recibe. Si añades albaranes a la agrupación, «Añadir las paradas nuevas» saca el DeCA en
+                        versión nueva con el mismo QR.
+                    </p>
+                    <div class="d-flex gap-2" invisible="not decafirma_route_id">
+                        <button name="action_decafirma_actualizar" type="object" groups="decafirma.group_decafirma_user" string="Actualizar" icon="fa-arrow-right"/>
+                        <button name="action_decafirma_quitar_paradas" type="object" groups="decafirma.group_decafirma_user" string="Quitar de la ruta lo que ya no está aquí" icon="fa-times"/>
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

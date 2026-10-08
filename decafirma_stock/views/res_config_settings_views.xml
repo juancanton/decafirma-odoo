@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_decafirma_stock" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.decafirma.stock</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="decafirma.res_config_settings_view_form_decafirma"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@id='decafirma_albaran']" position="before">
+                <block title="Inventario" id="decafirma_stock">
+                    <setting string="Cargador del DeCA" help="Quien contrata el transporte. Si vendéis y lleváis la mercancía, vosotros.">
+                        <field name="decafirma_cargador" widget="radio"/>
+                    </setting>
+                    <setting string="Emitir al validar el albarán de salida" help="Si no se puede emitir, el albarán se valida igual y el motivo queda en su chatter.">
+                        <field name="decafirma_auto" widget="radio"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>
