@@ -9,7 +9,7 @@
             <xpath expr="//form" position="inside">
                 <app data-string="DecaFirma" id="decafirma" string="DecaFirma" name="decafirma" groups="base.group_system">
                     <block title="Conexión" id="decafirma_conexion">
-                        <setting string="Clave de la API" help="Se crea en DecaFirma: Configuración &gt; Conectar tu programa (API). Empieza por dfk_. La API va en los planes de pago.">
+                        <setting string="Clave de la API" help="Se crea en DecaFirma: Configuración &gt; Conectar tu programa (API). Empieza por dfk_. En la prueba de 7 días va incluida; después, con el extra Conexión de DecaFirma.">
                             <div class="content-group mt16">
                                 <div class="row">
                                     <label for="decafirma_api_key" string="Clave" class="col-lg-3 o_light_label"/>
@@ -18,6 +18,10 @@
                                 <div class="row">
                                     <label for="decafirma_url" string="Dirección" class="col-lg-3 o_light_label"/>
                                     <field name="decafirma_url"/>
+                                </div>
+                                <div class="mt8" invisible="decafirma_api_key">
+                                    <span class="text-muted">¿Aún no tienes cuenta? </span>
+                                    <a href="https://decafirma.com/registro?utm_source=odoo&amp;utm_medium=modulo&amp;utm_campaign=odoo19" target="_blank">Créala gratis en DecaFirma</a>
                                 </div>
                                 <button name="action_decafirma_probar" type="object" string="Probar la conexión" class="btn-link" icon="fa-arrow-right"/>
                             </div>
