@@ -12,7 +12,7 @@ Módulos de Odoo para emitir con [DecaFirma](https://decafirma.com) el documento
 | `decafirma_stock_batch` | DecaFirma Delivery Routes | (Odoo 17 a 19) Las agrupaciones de albaranes como rutas; en Odoo 20 ya va dentro de `decafirma_stock`. |
 
 Una rama por versión de Odoo: `20.0`, `19.0`, `18.0`, `17.0`. Necesita una cuenta de DecaFirma con la API
-(planes de pago); los módulos son gratis. API: https://decafirma.com/desarrolladores
+(en la prueba de 7 días va incluida; después, con el extra Conexión); los módulos son gratis. API: https://decafirma.com/desarrolladores
 
 ## Probar en local
 
