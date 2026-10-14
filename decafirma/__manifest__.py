@@ -32,7 +32,8 @@ a document is issued, corrected, cancelled or sent, the data the DeCA requires
 plates, products and weights, and the delivery slip PDF to be signed).
 
 Used by `decafirma_stock` (outgoing transfers and batches) and `tms_deca`.
-Requires a DecaFirma account with API access (paid plans).
+Requires a DecaFirma account: the API is included in the 7-day free trial and,
+after it, in any plan with the Connection add-on.
 """,
     'author': 'Francodesystems',
     'website': 'https://decafirma.com',
