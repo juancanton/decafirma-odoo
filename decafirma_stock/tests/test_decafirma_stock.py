@@ -169,6 +169,42 @@ class TestDecafirmaStock(DecafirmaComun):
         self.assertIn('Falta la matrícula', r['params']['message'])
         self.assertEqual(p.decafirma_error, 'Falta la matrícula')
 
+    def test_reintento_lleva_lo_corregido(self):
+        # Laura (15-oct): sin matrícula se crea el envío y no se emite; al ponerla y volver a emitir,
+        # la matrícula tiene que llegar a DecaFirma antes de emitir ese mismo envío.
+        p = self._albaran()
+        p.decafirma_plate = False
+        with patch.object(DecafirmaClient, '_request', lambda *a, **k: (422, dict(_envio(estado='borrador'), error='Sin esto no se emite: Matrícula del vehículo'))):
+            p.action_decafirma_emitir_deca()
+        self.assertEqual(p.decafirma_shipment_id.deca_id, 'env1')
+        p.decafirma_plate = '1234ABC'
+        llamadas = []
+
+        def falso(cliente, metodo, ruta, payload=None, params=None):
+            llamadas.append((metodo, ruta, payload))
+            if metodo == 'PATCH':
+                return 200, _envio(estado='borrador')
+            return 201, _envio(docs=[_doc('d1', 'deca', 'DECA-1')])
+        with patch.object(DecafirmaClient, '_request', falso):
+            r = p.action_decafirma_emitir_deca()
+        self.assertEqual([(m, ruta) for m, ruta, _ in llamadas], [('PATCH', '/envios/env1'), ('POST', '/envios/env1/emitir')])
+        self.assertEqual(llamadas[0][2]['plate'], '1234ABC')
+        self.assertEqual(r['params']['type'], 'success')
+
+    def test_ya_emitido_no_se_corrige_al_emitir_lo_otro(self):
+        # Con el DeCA ya sacado, emitir el albarán no reescribe el envío: eso es «Corregir», que saca versión nueva.
+        p = self._albaran()
+        with patch.object(DecafirmaClient, '_request', lambda *a, **k: (201, _envio(docs=[_doc('d1', 'deca', 'DECA-1')]))):
+            p.action_decafirma_emitir_deca()
+        llamadas = []
+
+        def falso(cliente, metodo, ruta, payload=None, params=None):
+            llamadas.append((metodo, ruta))
+            return 201, _envio(docs=[_doc('d1', 'deca', 'DECA-1'), _doc('a1', 'albaran', 'ALB-1')])
+        with patch.object(DecafirmaClient, '_request', falso):
+            p.action_decafirma_emitir_albaran()
+        self.assertEqual(llamadas, [('POST', '/envios/env1/emitir')])
+
     def test_ruta_desde_agrupacion(self):
         ps = self._albaran(10) | self._albaran(20)
         batch = self.env['stock.picking.batch'].create({'picking_ids': [(6, 0, ps.ids)], 'decafirma_plate': '4821KLM',
