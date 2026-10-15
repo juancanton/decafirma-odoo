@@ -188,6 +188,14 @@ class DecafirmaMixin(models.AbstractModel):
                     if data.get('error'):
                         avisos[rec] = data['error']
                         continue
+                elif not any(envio.vigente(t) for t in ('deca', 'albaran')):
+                    # Ya creado pero sin nada emitido: la primera vez faltaba algo (Laura, 15-oct: sin
+                    # matrícula). Lo que hay ahora en Odoo va antes de emitir; si no, se emitiría con lo de entonces.
+                    _code, data = client.corregir(envio.deca_id, rec._decafirma_limpio(rec._decafirma_payload()))
+                    envio._aplicar(data)
+                    if data.get('error'):
+                        avisos[rec] = data['error']
+                        continue
                 for t in faltan:
                     _code, data = client.emitir(envio.deca_id, t, numero=numero if t == 'albaran' else None,
                                                 pdf=pdf if t == 'albaran' else None)
