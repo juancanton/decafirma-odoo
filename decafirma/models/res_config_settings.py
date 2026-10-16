@@ -16,7 +16,7 @@ class ResConfigSettings(models.TransientModel):
 
     def _decafirma_aviso(self, titulo, mensaje, tipo='success'):
         return {'type': 'ir.actions.client', 'tag': 'display_notification',
-                'params': {'title': titulo, 'message': mensaje, 'type': tipo, 'sticky': tipo != 'success'}}
+                'params': {'title': titulo, 'message': mensaje, 'type': tipo, 'sticky': False}}
 
     def action_decafirma_probar(self):
         """Comprueba la clave pidiendo las series del albarán (no crea nada)."""

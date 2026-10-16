@@ -231,7 +231,7 @@ class DecafirmaMixin(models.AbstractModel):
         if avisos:
             msg = '\n'.join(f'{r.display_name}: {m}' for r, m in avisos.items())
             return {'type': 'ir.actions.client', 'tag': 'display_notification', 'params': {
-                'title': _('DecaFirma'), 'message': msg, 'type': 'warning', 'sticky': True,
+                'title': _('DecaFirma'), 'message': msg, 'type': 'warning', 'sticky': False,
                 'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'}}}
         return {'type': 'ir.actions.client', 'tag': 'display_notification', 'params': {
             'title': _('DecaFirma'), 'message': ok, 'type': 'success',

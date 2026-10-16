@@ -124,7 +124,7 @@ class StockPickingBatch(models.Model):
 
     def _decafirma_aviso(self, mensaje, tipo='success'):
         return {'type': 'ir.actions.client', 'tag': 'display_notification', 'params': {
-            'title': _('DecaFirma'), 'message': mensaje, 'type': tipo, 'sticky': tipo != 'success',
+            'title': _('DecaFirma'), 'message': mensaje, 'type': tipo, 'sticky': False,
             'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'}}}
 
     def action_decafirma_emitir_ruta(self):
