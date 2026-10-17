@@ -193,7 +193,7 @@ class TestDecafirmaStock(DecafirmaComun):
         with patch('odoo.addons.decafirma.models.client.requests.request', lambda *a, **k: Respuesta()):
             r = p.action_decafirma_emitir_deca()
         self.assertEqual(r['params']['type'], 'warning')
-        self.assertIn('Faltan datos. Falta la matrícula. (400)', r['params']['message'])
+        self.assertIn('Datos no válidos para DecaFirma. Falta la matrícula. (400)', r['params']['message'])
 
     def test_reintento_lleva_lo_corregido(self):
         # Laura (15-oct): sin matrícula se crea el envío y no se emite; al ponerla y volver a emitir,
@@ -503,3 +503,22 @@ class TestDecafirmaWebhook(HttpCase):
         r = self.url_open(f'/decafirma/webhook/{company.id}', data=cuerpo, headers={
             'Content-Type': 'application/json', 'X-DecaFirma-Event': 'test', 'X-DecaFirma-Signature': firma})
         self.assertEqual(r.status_code, 200)
+
+
+@tagged('post_install', '-at_install')
+class TestDecafirmaMotivos(TransactionCase):
+    """Los errores de la API llegan en inglés y se enseñan en castellano por su «reason»."""
+
+    def test_motivos_en_castellano(self):
+        from odoo.addons.decafirma.models.client import mensaje_de_error
+        falta = {'error': {'code': 'unprocessable', 'message': 'The DeCA was not issued: Missing required fields: plate.',
+                           'details': {'reason': 'missing_fields', 'fields': ['plate'], 'document': 'deca'}}}
+        self.assertEqual(mensaje_de_error(falta), 'No se ha emitido el DeCA: Faltan datos para emitir: Matrícula del vehículo.')
+        repetido = {'error': {'code': 'unprocessable', 'message': 'x',
+                              'details': {'reason': 'duplicate_delivery_note_number', 'number': 'A/7'}}}
+        self.assertEqual(mensaje_de_error(repetido), 'Ya tienes un documento con el número A/7. Pon otro.')
+        # Un motivo que este módulo aún no conoce: el mensaje en inglés, tal cual.
+        nuevo = {'error': {'code': 'unprocessable', 'message': 'Something new.', 'details': {'reason': 'brand_new'}}}
+        self.assertEqual(mensaje_de_error(nuevo), 'Something new.')
+        self.assertIn('Ajustes > DecaFirma', mensaje_de_error({'error': {'code': 'invalid_api_key', 'message': 'x'}}))
+        self.assertIsNone(mensaje_de_error({'id': 'x'}))
