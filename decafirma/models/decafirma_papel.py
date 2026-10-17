@@ -8,6 +8,7 @@ from .decafirma_mixin import comprobar_permiso
 
 _logger = logging.getLogger(__name__)
 
+# En Odoo se guardan como siempre; la API los manda en inglés (TIPOS_API).
 TIPOS = [
     ('albaran', 'Albarán'),
     ('carta_de_porte', 'Carta de porte'),
@@ -15,6 +16,13 @@ TIPOS = [
     ('ticket', 'Ticket'),
     ('otro', 'Otro papel'),
 ]
+TIPOS_API = {
+    'delivery_note': 'albaran',
+    'consignment_note': 'carta_de_porte',
+    'weighbridge_ticket': 'ticket_bascula',
+    'ticket': 'ticket',
+    'other': 'otro',
+}
 EXTENSIONES = {'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf'}
 
 
@@ -58,21 +66,21 @@ class DecafirmaPapel(models.Model):
 
     @staticmethod
     def _valores(data, fecha):
-        peso = data.get('pesoNetoKg')
+        peso = data.get('netWeightKg')
         return {
             'deca_id': data['id'],
             # Lo que no se pudo leer llega sin tipo; uno que aún no conocemos, como «otro».
-            'tipo': (data.get('tipo') if data.get('tipo') in dict(TIPOS) else 'otro') if data.get('tipo') else False,
-            'numero': data.get('numero') or False,
-            'emisor': data.get('emisor') or False,
-            'fecha': data.get('fecha') or False,
+            'tipo': TIPOS_API.get(data['type'], 'otro') if data.get('type') else False,
+            'numero': data.get('number') or False,
+            'emisor': data.get('issuer') or False,
+            'fecha': data.get('date') or False,
             'peso_neto_kg': float(peso) if peso not in (None, '') else 0.0,
-            'leido': bool(data.get('leido')),
-            'mime': data.get('mime') or False,
-            'subido_por': data.get('subidoPor') or False,
-            'subido_at': fecha(data.get('subido')),
-            'facturado_at': fecha(data.get('facturado')),
-            'archivo_url': data.get('archivo') or False,
+            'leido': bool(data.get('parsed')),
+            'mime': data.get('mimeType') or False,
+            'subido_por': data.get('uploadedBy') or False,
+            'subido_at': fecha(data.get('uploadedAt')),
+            'facturado_at': fecha(data.get('invoicedAt')),
+            'archivo_url': data.get('fileUrl') or False,
         }
 
     def _nombre_archivo(self):
@@ -144,8 +152,8 @@ class DecafirmaPapel(models.Model):
                 _code, data = DecafirmaClient(p.company_id).marcar_papel(p.deca_id, facturado)
             except DecafirmaError as e:
                 raise UserError(str(e)) from e
-            if data and 'facturado' in data:
-                cuando = p.shipment_id._fecha(data['facturado'])
+            if data and 'invoicedAt' in data:
+                cuando = p.shipment_id._fecha(data['invoicedAt'])
             else:
                 cuando = fields.Datetime.now() if facturado else False
             p.sudo().facturado_at = cuando

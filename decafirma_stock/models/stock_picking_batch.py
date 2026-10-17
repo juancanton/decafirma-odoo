@@ -1,7 +1,7 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
-from odoo.addons.decafirma.models.client import MAX_PDFS_RUTA, DecafirmaClient, DecafirmaError
+from odoo.addons.decafirma.models.client import MAX_PDFS_RUTA, DecafirmaClient, DecafirmaError, mensaje_de_error
 from odoo.addons.decafirma.models.decafirma_mixin import comprobar_permiso
 
 
@@ -50,23 +50,23 @@ class StockPickingBatch(models.Model):
 
     @staticmethod
     def _parada(picking):
-        """Una parada de POST /api/v1/rutas a partir de su albarán (lo mismo que su DeCA suelto)."""
+        """Una parada de POST /api/v1/routes a partir de su albarán (lo mismo que su DeCA suelto)."""
         x = picking._decafirma_payload()
         parada = {
-            'tipo': 'entrega' if picking.picking_type_code == 'outgoing' else 'recogida',
-            'lugar': {'nombre': x.get('destinationName'), 'direccion': x.get('destinationAddress'), 'cp': x.get('destinationPostcode'),
-                      'ciudad': x.get('destinationCity'), 'provincia': x.get('destinationProvince')},
-            'destinatario': x.get('consigneeName'),
-            'destinatarioNif': x.get('consigneeTaxId'),
-            'contacto': x.get('consigneeContact'),
-            'telefono': x.get('destinationPhone'),
-            'correo': x.get('consigneeEmail'),
-            'mercancia': x.get('goodsDescription'),
-            'bultos': x.get('packages'),
-            'pesoKg': x.get('weightKg'),
-            'numeroAlbaran': picking._decafirma_numero_albaran(),
+            'type': 'delivery' if picking.picking_type_code == 'outgoing' else 'pickup',
+            'location': {'name': x.get('destinationName'), 'address': x.get('destinationAddress'), 'postcode': x.get('destinationPostcode'),
+                         'city': x.get('destinationCity'), 'province': x.get('destinationProvince')},
+            'consigneeName': x.get('consigneeName'),
+            'consigneeTaxId': x.get('consigneeTaxId'),
+            'contact': x.get('consigneeContact'),
+            'phone': x.get('destinationPhone'),
+            'email': x.get('consigneeEmail'),
+            'goodsDescription': x.get('goodsDescription'),
+            'packages': x.get('packages'),
+            'weightKg': x.get('weightKg'),
+            'deliveryNoteNumber': picking._decafirma_numero_albaran(),
         }
-        parada['lugar'] = {k: v for k, v in parada['lugar'].items() if v}
+        parada['location'] = {k: v for k, v in parada['location'].items() if v}
         return {k: v for k, v in parada.items() if v not in (None, False, '', {})}
 
     def _decafirma_comun(self, pickings):
@@ -86,8 +86,8 @@ class StockPickingBatch(models.Model):
                      plate=self.decafirma_plate, trailerPlate=self.decafirma_trailer,
                      driverName=self.decafirma_driver_id.name, driverTaxId=self.decafirma_driver_id.vat,
                      driverPhone=self.decafirma_driver_id.phone,
-                     base={'nombre': base.name, 'direccion': ', '.join(filter(None, [base.street, base.street2])) or None,
-                           'cp': base.zip, 'ciudad': base.city, 'provincia': base.state_id.name})
+                     base={'name': base.name, 'address': ', '.join(filter(None, [base.street, base.street2])) or None,
+                           'postcode': base.zip, 'city': base.city, 'province': base.state_id.name})
         comun['base'] = {k: v for k, v in comun['base'].items() if v}
         return primero._decafirma_limpio(comun) | {'base': comun['base']}
 
@@ -96,26 +96,26 @@ class StockPickingBatch(models.Model):
     # ------------------------------------------------------------------
 
     def _decafirma_aplicar_ruta(self, data, pickings_nuevos=None):
-        """Lleva a Odoo la ruta (GET /rutas/:id): el DeCA a la agrupación y cada parada a su albarán."""
+        """Lleva a Odoo la ruta (GET /routes/:id): el DeCA a la agrupación y cada parada a su albarán."""
         self.ensure_one()
         deca = data.get('deca') or {}
         self.write({
             'decafirma_route_id': data.get('id'),
-            'decafirma_deca_url': deca.get('url'),
-            'decafirma_deca_ref': deca.get('referencia'),
+            'decafirma_deca_url': deca.get('publicUrl'),
+            'decafirma_deca_ref': deca.get('reference'),
             'decafirma_deca_version': deca.get('version') or 0,
             'decafirma_error': False,
         })
         conocidos = {p.decafirma_shipment_id.deca_id: p for p in self.picking_ids if p.decafirma_shipment_id.deca_id}
         sin_envio = list(pickings_nuevos or [])
-        for parada in data.get('paradas') or []:
+        for parada in data.get('stops') or []:
             picking = conocidos.get(parada['id'])
             if not picking:
                 if not sin_envio:
                     continue
                 picking = sin_envio.pop(0)
             envio = picking._decafirma_envio()
-            envio.sudo().route_deca_url = deca.get('url')
+            envio.sudo().route_deca_url = deca.get('publicUrl')
             envio._aplicar(parada)
 
     # ------------------------------------------------------------------
@@ -152,21 +152,21 @@ class StockPickingBatch(models.Model):
                                               'en esta parada se firma el de DecaFirma.'))
                     continue
                 total += len(pdf)
-                parada['albaranPdf'] = DecafirmaClient.pdf_base64(pdf)
+                parada['deliveryNotePdf'] = DecafirmaClient.pdf_base64(pdf)
         try:
             if not self.decafirma_route_id:
                 pickings = self._decafirma_pickings()
-                payload = {'referencia': f'{self.name} ({self.env.cr.dbname}:{self.id})', 'comun': self._decafirma_comun(pickings),
-                           'paradas': paradas, 'albaranes': self.decafirma_albaranes}
+                payload = {'reference': f'{self.name} ({self.env.cr.dbname}:{self.id})', 'common': self._decafirma_comun(pickings),
+                           'stops': paradas, 'deliveryNotes': self.decafirma_albaranes}
                 code, data = client.crear_ruta(payload)
             else:
-                code, data = client.anadir_paradas(self.decafirma_route_id, {'paradas': paradas, 'albaranes': self.decafirma_albaranes})
+                code, data = client.anadir_paradas(self.decafirma_route_id, {'stops': paradas, 'deliveryNotes': self.decafirma_albaranes})
         except DecafirmaError as e:
             self.decafirma_error = str(e)
             return self._decafirma_aviso(str(e), 'warning')
         self._decafirma_aplicar_ruta(data, nuevas)
         return self._decafirma_aviso(_('Ruta en DecaFirma: %(ref)s, versión %(v)s, %(n)s paradas.',
-                                       ref=self.decafirma_deca_ref, v=self.decafirma_deca_version, n=len(data.get('paradas') or [])))
+                                       ref=self.decafirma_deca_ref, v=self.decafirma_deca_version, n=len(data.get('stops') or [])))
 
     def action_decafirma_quitar_paradas(self):
         """Saca de la ruta las paradas cuyo albarán ya no está en la agrupación (el DeCA sale en versión nueva)."""
@@ -185,11 +185,12 @@ class StockPickingBatch(models.Model):
                 avisos.append(f'{envio.name}: {e}')
                 continue
             if code == 422:
-                avisos.append(f"{envio.name}: {data.get('error')}")
+                avisos.append(f"{envio.name}: {mensaje_de_error(data)}")
                 continue
             envio.sudo().write({'route_deca_id': False, 'route_deca_url': False})
             envio.action_actualizar()
-            if data.get('id'):
+            # Al quitar la última parada, la ruta se borra: {id, deleted: true}, sin nada que llevar.
+            if data.get('id') and not data.get('deleted'):
                 self._decafirma_aplicar_ruta(data)
         if avisos:
             return self._decafirma_aviso('\n'.join(avisos), 'warning')
