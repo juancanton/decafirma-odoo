@@ -7,6 +7,8 @@ import requests
 from odoo import _
 from odoo.exceptions import UserError
 
+from .motivos import traducir
+
 _logger = logging.getLogger(__name__)
 
 TIMEOUT = 25
@@ -20,11 +22,8 @@ TIPO_API = {'deca': 'deca', 'albaran': 'delivery_note'}
 
 
 def mensaje_de_error(data):
-    """El texto del error que manda DecaFirma ({"error": {"code", "message", "details"}}), o None."""
-    error = data.get('error') if isinstance(data, dict) else None
-    if isinstance(error, dict):
-        return error.get('message') or error.get('code') or None
-    return error or None
+    """El texto del error que manda DecaFirma ({"error": {"code", "message", "details"}}), en castellano, o None."""
+    return traducir(data.get('error') if isinstance(data, dict) else None)
 
 
 class DecafirmaError(Exception):
@@ -74,10 +73,6 @@ class DecafirmaClient:
         if resp.status_code in (200, 201) or (resp.status_code == 422 and isinstance(data, dict) and data.get('id')):
             return resp.status_code, data
         mensaje = mensaje_de_error(data) or resp.reason
-        error = data.get('error') if isinstance(data, dict) else None
-        detalles = error.get('details') if isinstance(error, dict) else None
-        if isinstance(detalles, list):
-            mensaje = f"{mensaje} {' '.join(map(str, detalles))}"
         raise DecafirmaError(_('DecaFirma: %(msg)s (%(code)s)', code=resp.status_code, msg=mensaje))
 
     # Envíos y documentos
