@@ -3,7 +3,7 @@ import logging
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError
 
-from .client import MAX_PDF_PROPIO, DecafirmaClient, DecafirmaError
+from .client import MAX_PDF_PROPIO, TIPO_API, DecafirmaClient, DecafirmaError, mensaje_de_error
 
 _logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class DecafirmaMixin(models.AbstractModel):
     """Lo que hereda cualquier cosa que emite en DecaFirma (un albarán de Inventario, un servicio del TMS…).
 
     Quien lo hereda dice qué se manda en `_decafirma_payload` (los campos de
-    POST /api/v1/envios, los mismos que el formulario de DecaFirma) y, si quiere,
+    POST /api/v1/shipments, los mismos que el formulario de DecaFirma) y, si quiere,
     la referencia en `_decafirma_referencia`. Lo demás (emitir, corregir,
     anular, mandar al conductor, ponerse al día) va aquí.
     """
@@ -57,7 +57,7 @@ class DecafirmaMixin(models.AbstractModel):
     # ------------------------------------------------------------------
 
     def _decafirma_payload(self):
-        """Los campos del envío para POST /api/v1/envios (sin «emitir» ni «referencia»)."""
+        """Los campos del envío para POST /api/v1/shipments (sin «issue» ni «reference»)."""
         raise NotImplementedError
 
     def _decafirma_referencia(self):
@@ -176,32 +176,32 @@ class DecafirmaMixin(models.AbstractModel):
                 numero = rec._decafirma_numero_albaran() if 'albaran' in faltan else None
                 pdf = rec._decafirma_pdf_propio() if 'albaran' in faltan else None
                 if not envio.deca_id:
-                    payload = dict(rec._decafirma_limpio(rec._decafirma_payload()), referencia=rec._decafirma_referencia(),
-                                   emitir='ambos' if len(faltan) == 2 else faltan[0])
+                    payload = dict(rec._decafirma_limpio(rec._decafirma_payload()), reference=rec._decafirma_referencia(),
+                                   issue='both' if len(faltan) == 2 else TIPO_API[faltan[0]])
                     if numero:
-                        payload['numeroAlbaran'] = numero
+                        payload['deliveryNoteNumber'] = numero
                     if pdf:
-                        payload['albaranPdf'] = client.pdf_base64(pdf)
+                        payload['deliveryNotePdf'] = client.pdf_base64(pdf)
                     _code, data = client.crear_envio(payload)
                     envio._aplicar(data)
-                    faltan = [t for t in tipos if not envio.vigente(t)] if data.get('repetido') else []
-                    if data.get('error'):
-                        avisos[rec] = data['error']
+                    faltan = [t for t in tipos if not envio.vigente(t)] if data.get('duplicate') else []
+                    if mensaje_de_error(data):
+                        avisos[rec] = mensaje_de_error(data)
                         continue
                 elif not any(envio.vigente(t) for t in ('deca', 'albaran')):
                     # Ya creado pero sin nada emitido: la primera vez faltaba algo (Laura, 15-oct: sin
                     # matrícula). Lo que hay ahora en Odoo va antes de emitir; si no, se emitiría con lo de entonces.
                     _code, data = client.corregir(envio.deca_id, rec._decafirma_limpio(rec._decafirma_payload()))
                     envio._aplicar(data)
-                    if data.get('error'):
-                        avisos[rec] = data['error']
+                    if mensaje_de_error(data):
+                        avisos[rec] = mensaje_de_error(data)
                         continue
                 for t in faltan:
                     _code, data = client.emitir(envio.deca_id, t, numero=numero if t == 'albaran' else None,
                                                 pdf=pdf if t == 'albaran' else None)
                     envio._aplicar(data)
-                    if data.get('error'):
-                        avisos[rec] = data['error']
+                    if mensaje_de_error(data):
+                        avisos[rec] = mensaje_de_error(data)
                         break
             except (DecafirmaError, UserError) as e:
                 envio.sudo().error = str(e)
@@ -222,9 +222,9 @@ class DecafirmaMixin(models.AbstractModel):
                 avisos[rec] = str(e)
                 continue
             envio._aplicar(data)
-            if data.get('error'):
-                avisos[rec] = data['error']
-            nuevas += data.get('nuevasVersiones') or []
+            if mensaje_de_error(data):
+                avisos[rec] = mensaje_de_error(data)
+            nuevas += data.get('newVersions') or []
         return avisos, nuevas
 
     def _decafirma_notificar(self, avisos, ok):

@@ -11,18 +11,27 @@ from odoo.tests import HttpCase, TransactionCase, tagged
 from odoo.addons.decafirma.models.client import DecafirmaClient
 
 
-def _envio(id_='env1', docs=(), estado='documentado', ruta=None):
-    return {'id': id_, 'estado': estado, 'ruta': ruta, 'documentos': list(docs)}
+def _envio(id_='env1', docs=(), estado='documented', ruta=None):
+    return {'id': id_, 'status': estado, 'route': ruta, 'documents': list(docs)}
 
 
-def _doc(id_, tipo, ref, version=1, estado='vigente', firmado=None):
-    d = {'id': id_, 'tipo': tipo, 'referencia': ref, 'version': version, 'estado': estado, 'demo': False,
-         'url': f'https://decafirma.test/d/{id_}', 'pdf': f'https://decafirma.test/api/v1/documentos/{id_}/pdf',
-         'emitido': '2026-10-07T10:00:00Z'}
+def _doc(id_, tipo, ref, version=1, estado='active', firmado=None):
+    """Un documento como lo manda la API: tipo 'deca' o 'albaran' (en la API, 'delivery_note')."""
+    tipo_api = 'delivery_note' if tipo == 'albaran' else tipo
+    d = {'id': id_, 'type': tipo_api, 'reference': ref, 'version': version, 'status': estado, 'isDemo': False,
+         'publicUrl': f'https://decafirma.test/d/{id_}', 'pdfUrl': f'https://decafirma.test/api/v1/documents/{id_}/pdf',
+         'issuedAt': '2026-10-07T10:00:00Z'}
     if tipo == 'albaran':
-        d['urlFirma'] = f'https://decafirma.test/d/{id_}/firmar'
-        d['firmado'] = firmado
+        d['signUrl'] = f'https://decafirma.test/d/{id_}/firmar'
+        d['signature'] = firmado
     return d
+
+
+def _ruta(docs_paradas, deca_id='d1'):
+    """Una ruta como la manda la API (POST /routes): el DeCA de la ruta y sus paradas."""
+    return {'id': 'r1', 'deca': {'id': deca_id, 'reference': 'DECA-R', 'version': 1, 'status': 'active',
+                                 'publicUrl': f'https://decafirma.test/d/{deca_id}'},
+            'stops': docs_paradas}
 
 
 class DecafirmaComun(TransactionCase):
@@ -64,7 +73,7 @@ class TestDecafirmaStock(DecafirmaComun):
         self.assertEqual(x['packages'], 40)
         self.assertEqual(x['plate'], '4821KLM')
         self.assertEqual(x['driverTaxId'], '12345678Z')
-        self.assertEqual(x['lineas'][0]['referencia'], 'S25')
+        self.assertEqual(x['lines'][0]['reference'], 'S25')
         self.assertEqual(x['destinationCity'], 'Granollers')
 
     def test_emitir_y_firma_por_aviso(self):
@@ -77,9 +86,9 @@ class TestDecafirmaStock(DecafirmaComun):
 
         with patch.object(DecafirmaClient, '_request', falso):
             p.action_decafirma_emitir_ambos()
-        self.assertEqual(llamadas[0][0:2], ('POST', '/envios'))
-        self.assertEqual(llamadas[0][2]['emitir'], 'ambos')
-        self.assertIn(p.name, llamadas[0][2]['referencia'], 'la referencia lleva el albarán (y la base): idempotente')
+        self.assertEqual(llamadas[0][0:2], ('POST', '/shipments'))
+        self.assertEqual(llamadas[0][2]['issue'], 'both')
+        self.assertIn(p.name, llamadas[0][2]['reference'], 'la referencia lleva el albarán (y la base): idempotente')
         self.assertEqual(p.decafirma_state, 'documented')
         self.assertTrue(p.decafirma_has_deca and p.decafirma_has_albaran)
         self.assertEqual(p.decafirma_deca_url, 'https://decafirma.test/d/d1')
@@ -88,7 +97,7 @@ class TestDecafirmaStock(DecafirmaComun):
         with patch.object(DecafirmaClient, 'pdf', lambda cliente, url: b'%PDF-1.7 firmado'):
             p.decafirma_shipment_id._aplicar(_envio(docs=[
                 _doc('d1', 'deca', 'DECA-1'),
-                _doc('a1', 'albaran', 'ALB-1', version=2, firmado={'cuando': '2026-10-07T11:00:00Z', 'quien': 'Jordi Martí', 'dni': None, 'observaciones': 'Un saco roto'}),
+                _doc('a1', 'albaran', 'ALB-1', version=2, firmado={'signedAt': '2026-10-07T11:00:00Z', 'signerName': 'Jordi Martí', 'signerTaxId': None, 'remarks': 'Un saco roto'}),
             ]))
         self.assertTrue(p.decafirma_signed)
         mensaje = p.message_ids[0]
@@ -109,7 +118,7 @@ class TestDecafirmaStock(DecafirmaComun):
         with patch.object(DecafirmaClient, '_request', lambda *a, **k: (201, _envio(docs=[_doc('a1', 'albaran', 'ALB-1')]))):
             p.action_decafirma_emitir_albaran()
         with patch.object(DecafirmaClient, 'pdf', lambda cliente, url: b'%PDF-1.7'):
-            p.decafirma_shipment_id._aplicar(_envio(docs=[_doc('a1', 'albaran', 'ALB-1', 2, firmado={'cuando': '2026-10-07T11:00:00Z', 'quien': 'Ana'})]))
+            p.decafirma_shipment_id._aplicar(_envio(docs=[_doc('a1', 'albaran', 'ALB-1', 2, firmado={'signedAt': '2026-10-07T11:00:00Z', 'signerName': 'Ana'})]))
         self.assertFalse(p.activity_ids.filtered(lambda a: 'reservas' in (a.summary or '')))
 
     def test_firmar_el_albaran_de_odoo(self):
@@ -124,8 +133,9 @@ class TestDecafirmaStock(DecafirmaComun):
         pdf_odoo = b'%PDF-1.7 el albaran de Odoo'
         with patch.object(type(p), '_decafirma_pdf_odoo', lambda rec: pdf_odoo), patch.object(DecafirmaClient, '_request', falso):
             p.action_decafirma_emitir_albaran()
-        self.assertEqual(base64.b64decode(enviado['albaranPdf']), pdf_odoo, 'se manda el PDF de Odoo')
-        self.assertEqual(enviado['numeroAlbaran'], p.name, 'con su número, aunque no esté puesto el de Odoo')
+        self.assertEqual(base64.b64decode(enviado['deliveryNotePdf']), pdf_odoo, 'se manda el PDF de Odoo')
+        self.assertEqual(enviado['deliveryNoteNumber'], p.name, 'con su número, aunque no esté puesto el de Odoo')
+        self.assertEqual(enviado['issue'], 'delivery_note')
 
     def test_sin_pdf_de_verdad_sale_el_de_decafirma(self):
         # En las pruebas, Odoo saca los informes en HTML: eso no se manda.
@@ -139,7 +149,7 @@ class TestDecafirmaStock(DecafirmaComun):
 
         with patch.object(DecafirmaClient, '_request', falso):
             p.action_decafirma_emitir_albaran()
-        self.assertNotIn('albaranPdf', enviado)
+        self.assertNotIn('deliveryNotePdf', enviado)
         self.assertEqual(p.decafirma_state, 'documented')
 
     def test_sin_firmar_pdf_odoo_no_se_manda(self):
@@ -152,7 +162,7 @@ class TestDecafirmaStock(DecafirmaComun):
 
         with patch.object(type(p), '_decafirma_pdf_odoo', side_effect=AssertionError('no tocaba')), patch.object(DecafirmaClient, '_request', falso):
             p.action_decafirma_emitir_albaran()
-        self.assertNotIn('albaranPdf', enviado)
+        self.assertNotIn('deliveryNotePdf', enviado)
 
     def test_pdf_demasiado_grande_sale_el_de_decafirma(self):
         self.company.decafirma_pdf_odoo = True
@@ -168,7 +178,7 @@ class TestDecafirmaStock(DecafirmaComun):
                 patch.object(type(p), '_decafirma_pdf_odoo', lambda rec: b'%PDF-1.7 el albaran de Odoo'), \
                 patch.object(DecafirmaClient, '_request', falso):
             p.action_decafirma_emitir_albaran()
-        self.assertNotIn('albaranPdf', enviado)
+        self.assertNotIn('deliveryNotePdf', enviado)
         self.assertTrue(p.decafirma_shipment_id.document_ids, 'el albarán sale igual')
         self.assertIn('pesa más de 5 MB', ' '.join(p.message_ids.mapped('body')))
 
@@ -181,17 +191,32 @@ class TestDecafirmaStock(DecafirmaComun):
 
     def test_error_de_emision_se_dice(self):
         p = self._albaran()
-        with patch.object(DecafirmaClient, '_request', lambda *a, **k: (422, dict(_envio(estado='borrador'), error='Falta la matrícula'))):
+        with patch.object(DecafirmaClient, '_request', lambda *a, **k: (422, dict(_envio(estado='draft'), error={'code': 'unprocessable', 'message': 'Falta la matrícula'}))):
             r = p.action_decafirma_emitir_deca()
         self.assertEqual(r['params']['type'], 'warning')
         self.assertIn('Falta la matrícula', r['params']['message'])
         self.assertEqual(p.decafirma_error, 'Falta la matrícula')
 
+    def test_error_de_la_api_se_ensena(self):
+        # La API contesta {"error": {"code", "message", "details"}}: se enseña el mensaje (y los detalles).
+        class Respuesta:
+            status_code = 400
+            reason = 'Bad Request'
+
+            @staticmethod
+            def json():
+                return {'error': {'code': 'validation_error', 'message': 'Faltan datos.', 'details': ['Falta la matrícula.']}}
+
+        p = self._albaran()
+        with patch('odoo.addons.decafirma.models.client.requests.request', lambda *a, **k: Respuesta()):
+            r = p.action_decafirma_emitir_deca()
+        self.assertEqual(r['params']['type'], 'warning')
+        self.assertIn('Faltan datos. Falta la matrícula. (400)', r['params']['message'])
 
 def _papel(id_='pp1', numero='T-0042', peso='24380.00', facturado=None):
-    return {'id': id_, 'tipo': 'ticket_bascula', 'numero': numero, 'emisor': 'Áridos del Vallès', 'fecha': '2026-10-08',
-            'pesoNetoKg': peso, 'leido': True, 'mime': 'image/jpeg', 'subidoPor': 'el conductor',
-            'subido': '2026-10-08T09:30:00Z', 'facturado': facturado, 'archivo': f'https://decafirma.test/api/v1/papeles/{id_}/archivo'}
+    return {'id': id_, 'type': 'weighbridge_ticket', 'number': numero, 'issuer': 'Áridos del Vallès', 'date': '2026-10-08',
+            'netWeightKg': peso, 'parsed': True, 'mimeType': 'image/jpeg', 'uploadedBy': 'el conductor',
+            'uploadedAt': '2026-10-08T09:30:00Z', 'invoicedAt': facturado, 'fileUrl': f'https://decafirma.test/api/v1/attachments/{id_}/file'}
 
 
 @tagged('post_install', '-at_install')
@@ -203,7 +228,7 @@ class TestDecafirmaPapeles(DecafirmaComun):
         # la matrícula tiene que llegar a DecaFirma antes de emitir ese mismo envío.
         p = self._albaran()
         p.decafirma_plate = False
-        with patch.object(DecafirmaClient, '_request', lambda *a, **k: (422, dict(_envio(estado='borrador'), error='Sin esto no se emite: Matrícula del vehículo'))):
+        with patch.object(DecafirmaClient, '_request', lambda *a, **k: (422, dict(_envio(estado='draft'), error={'code': 'unprocessable', 'message': 'Sin esto no se emite: Matrícula del vehículo'}))):
             p.action_decafirma_emitir_deca()
         self.assertEqual(p.decafirma_shipment_id.deca_id, 'env1')
         p.decafirma_plate = '1234ABC'
@@ -212,12 +237,13 @@ class TestDecafirmaPapeles(DecafirmaComun):
         def falso(cliente, metodo, ruta, payload=None, params=None):
             llamadas.append((metodo, ruta, payload))
             if metodo == 'PATCH':
-                return 200, _envio(estado='borrador')
+                return 200, _envio(estado='draft')
             return 201, _envio(docs=[_doc('d1', 'deca', 'DECA-1')])
         with patch.object(DecafirmaClient, '_request', falso):
             r = p.action_decafirma_emitir_deca()
-        self.assertEqual([(m, ruta) for m, ruta, _ in llamadas], [('PATCH', '/envios/env1'), ('POST', '/envios/env1/emitir')])
+        self.assertEqual([(m, ruta) for m, ruta, _ in llamadas], [('PATCH', '/shipments/env1'), ('POST', '/shipments/env1/issue')])
         self.assertEqual(llamadas[0][2]['plate'], '1234ABC')
+        self.assertEqual(llamadas[1][2], {'type': 'deca'})
         self.assertEqual(r['params']['type'], 'success')
 
     def test_ya_emitido_no_se_corrige_al_emitir_lo_otro(self):
@@ -232,7 +258,7 @@ class TestDecafirmaPapeles(DecafirmaComun):
             return 201, _envio(docs=[_doc('d1', 'deca', 'DECA-1'), _doc('a1', 'albaran', 'ALB-1')])
         with patch.object(DecafirmaClient, '_request', falso):
             p.action_decafirma_emitir_albaran()
-        self.assertEqual(llamadas, [('POST', '/envios/env1/emitir')])
+        self.assertEqual(llamadas, [('POST', '/shipments/env1/issue')])
 
     def _emitido(self):
         p = self._albaran()
@@ -248,14 +274,14 @@ class TestDecafirmaPapeles(DecafirmaComun):
             pedidas.append(url)
             return b'\xff\xd8\xff foto'
 
-        envio = dict(_envio(docs=[_doc('d1', 'deca', 'DECA-1')]), papeles=[_papel()])
+        envio = dict(_envio(docs=[_doc('d1', 'deca', 'DECA-1')]), attachments=[_papel()])
         with patch.object(DecafirmaClient, 'archivo', archivo):
             p.decafirma_shipment_id._aplicar(envio)
             p.decafirma_shipment_id._aplicar(envio)  # el mismo aviso dos veces: un solo papel y una sola nota
         papel = p.decafirma_papel_ids
         self.assertEqual(len(papel), 1)
         self.assertEqual((papel.numero, papel.peso_neto_kg, papel.facturado), ('T-0042', 24380.0, False))
-        self.assertEqual(pedidas, ['https://decafirma.test/api/v1/papeles/pp1/archivo'], 'la foto se baja una vez')
+        self.assertEqual(pedidas, ['https://decafirma.test/api/v1/attachments/pp1/file'], 'la foto se baja una vez')
         self.assertEqual(papel.attachment_id.res_id, p.id, 'la foto, adjunta al albarán')
         notas = p.message_ids.filtered(lambda m: 'Papel del porte' in (m.body or ''))
         self.assertEqual(len(notas), 1)
@@ -267,22 +293,22 @@ class TestDecafirmaPapeles(DecafirmaComun):
     def test_sin_papeles_no_cambia_nada(self):
         p = self._emitido()
         p.decafirma_shipment_id._aplicar(_envio(docs=[_doc('d1', 'deca', 'DECA-1')]))
-        self.assertFalse(p.decafirma_papel_ids, 'un plan sin papeles no trae «papeles» (o viene vacío)')
+        self.assertFalse(p.decafirma_papel_ids, 'un plan sin papeles no trae «attachments» (o viene vacío)')
 
     def test_marcar_facturado(self):
         p = self._emitido()
         with patch.object(DecafirmaClient, 'archivo', lambda c, u: b'foto'):
-            p.decafirma_shipment_id._aplicar(dict(_envio(docs=[_doc('d1', 'deca', 'DECA-1')]), papeles=[_papel()]))
+            p.decafirma_shipment_id._aplicar(dict(_envio(docs=[_doc('d1', 'deca', 'DECA-1')]), attachments=[_papel()]))
         llamadas = []
 
         def falso(cliente, metodo, ruta, payload=None, params=None):
             llamadas.append((metodo, ruta, payload))
-            return 200, _papel(facturado='2026-10-08T12:00:00Z' if payload['facturado'] else None)
+            return 200, _papel(facturado='2026-10-08T12:00:00Z' if payload['invoiced'] else None)
 
         with patch.object(DecafirmaClient, '_request', falso):
             p.decafirma_papel_ids.action_marcar_facturado()
             p.decafirma_papel_ids.action_marcar_facturado()  # ya lo está: no vuelve a llamar
-        self.assertEqual(llamadas, [('POST', '/papeles/pp1/facturado', {'facturado': True})])
+        self.assertEqual(llamadas, [('POST', '/attachments/pp1/invoiced', {'invoiced': True})])
         self.assertTrue(p.decafirma_papel_ids.facturado)
         with patch.object(DecafirmaClient, '_request', falso):
             p.decafirma_papel_ids.action_marcar_pendiente()
@@ -293,11 +319,11 @@ class TestDecafirmaPapeles(DecafirmaComun):
         envio_id = p.decafirma_shipment_id.deca_id
 
         def falso(cliente, metodo, ruta, payload=None, params=None):
-            if ruta == '/documentos':
-                return 200, {'documentos': [], 'hasta': '2026-10-08T10:00:00Z'}
-            if ruta == '/papeles':
-                return 200, {'papeles': [dict(_papel(), envio=envio_id)], 'hasta': '2026-10-08T10:00:00Z'}
-            return 200, dict(_envio(docs=[_doc('d1', 'deca', 'DECA-1')]), papeles=[_papel()])
+            if ruta == '/documents':
+                return 200, {'data': [], 'until': '2026-10-08T10:00:00Z', 'hasMore': False}
+            if ruta == '/attachments':
+                return 200, {'data': [dict(_papel(), shipmentId=envio_id)], 'until': '2026-10-08T10:00:00Z', 'hasMore': False}
+            return 200, dict(_envio(docs=[_doc('d1', 'deca', 'DECA-1')]), attachments=[_papel()])
 
         with patch.object(DecafirmaClient, '_request', falso), patch.object(DecafirmaClient, 'archivo', lambda c, u: b'foto'):
             self.env['decafirma.shipment']._cron_poner_al_dia(self.company)
@@ -309,10 +335,10 @@ class TestDecafirmaPapeles(DecafirmaComun):
         from odoo.addons.decafirma.models.client import DecafirmaError
 
         def falso(cliente, metodo, ruta, payload=None, params=None):
-            if ruta == '/papeles':
+            if ruta == '/attachments':
                 raise DecafirmaError('DecaFirma: No existe (404)')
-            if ruta == '/documentos':
-                return 200, {'documentos': [{'envio': p.decafirma_shipment_id.deca_id}], 'hasta': '2026-10-08T10:00:00Z'}
+            if ruta == '/documents':
+                return 200, {'data': [{'shipmentId': p.decafirma_shipment_id.deca_id}], 'until': '2026-10-08T10:00:00Z', 'hasMore': False}
             return 200, _envio(docs=[_doc('d1', 'deca', 'DECA-1', version=2)])
 
         with patch.object(DecafirmaClient, '_request', falso):
@@ -345,8 +371,8 @@ class TestDecafirmaPermisos(DecafirmaComun):
 
         with patch.object(DecafirmaClient, '_request', falso):
             p.with_user(maria).action_decafirma_emitir_deca()
-        self.assertEqual(cabeceras['X-DecaFirma-Programa'], 'Odoo')
-        self.assertEqual(cabeceras['X-DecaFirma-Usuario'], 'Mar%C3%ADa usuaria', 'quién emite, para «Emitido por María (desde Odoo)»')
+        self.assertEqual(cabeceras['X-DecaFirma-Client'], 'Odoo')
+        self.assertEqual(cabeceras['X-DecaFirma-User'], 'Mar%C3%ADa usuaria', 'quién emite, para «Emitido por María (desde Odoo)»')
         doc = p.decafirma_shipment_id.vigente('deca')
         with self.assertRaises(AccessError):
             doc.with_user(maria).action_anular()
@@ -360,12 +386,12 @@ class TestDecafirmaPermisos(DecafirmaComun):
         with patch.object(DecafirmaClient, '_request', lambda *a, **k: (201, _envio(docs=[_doc('d1', 'deca', 'DECA-1')]))):
             p.action_decafirma_emitir_deca()
         doc = p.decafirma_shipment_id.vigente('deca')
-        with patch.object(DecafirmaClient, '_request', lambda *a, **k: (200, _envio(docs=[_doc('d1', 'deca', 'DECA-1', 2, 'anulado')]))):
+        with patch.object(DecafirmaClient, '_request', lambda *a, **k: (200, _envio(docs=[_doc('d1', 'deca', 'DECA-1', 2, 'voided')]))):
             self.env['decafirma.wizard'].with_user(jefa).create({'accion': 'anular', 'document_id': doc.id, 'motivo': 'No sale'}).action_confirmar()
         self.assertEqual(doc.state, 'anulado')
 
     def test_el_robot_no_se_presenta(self):
-        self.assertNotIn('X-DecaFirma-Usuario', DecafirmaClient(self.company.with_user(self.env.ref('base.user_root')))._headers())
+        self.assertNotIn('X-DecaFirma-User', DecafirmaClient(self.company.with_user(self.env.ref('base.user_root')))._headers())
 
 
 @tagged('post_install', '-at_install')
@@ -376,12 +402,24 @@ class TestDecafirmaWebhook(HttpCase):
         company.sudo().decafirma_webhook_secret = 'whsec_prueba'
         envio = self.env['decafirma.shipment'].create({'name': 'X', 'res_model': 'res.partner', 'res_id': self.env.user.partner_id.id,
                                                        'deca_id': 'envW', 'company_id': company.id})
-        cuerpo = json.dumps({'evento': 'documento.anulado', 'envio': _envio('envW', [_doc('dW', 'deca', 'DECA-W', 2, 'anulado')])}).encode()
+        cuerpo = json.dumps({'type': 'document.voided', 'createdAt': '2026-10-17T10:00:00Z',
+                             'document': {'id': 'dW', 'type': 'deca', 'reference': 'DECA-W', 'version': 2, 'status': 'voided'},
+                             'routeId': None, 'shipment': _envio('envW', [_doc('dW', 'deca', 'DECA-W', 2, 'voided')])}).encode()
         url = f'/decafirma/webhook/{company.id}'
-        mala = self.url_open(url, data=cuerpo, headers={'Content-Type': 'application/json', 'X-DecaFirma-Firma': 'sha256=0'})
+        cabeceras = {'Content-Type': 'application/json', 'X-DecaFirma-Event': 'document.voided', 'X-DecaFirma-Delivery': 'dl_1'}
+        mala = self.url_open(url, data=cuerpo, headers=dict(cabeceras, **{'X-DecaFirma-Signature': 'sha256=0'}))
         self.assertEqual(mala.status_code, 401, 'sin la firma buena no se toca nada')
         firma = 'sha256=' + hmac.new(b'whsec_prueba', cuerpo, hashlib.sha256).hexdigest()
-        buena = self.url_open(url, data=cuerpo, headers={'Content-Type': 'application/json', 'X-DecaFirma-Firma': firma})
+        buena = self.url_open(url, data=cuerpo, headers=dict(cabeceras, **{'X-DecaFirma-Signature': firma}))
         self.assertEqual(buena.status_code, 200)
         envio.invalidate_recordset()
         self.assertEqual(envio.document_ids.state, 'anulado')
+
+    def test_aviso_de_prueba(self):
+        company = self.env.company
+        company.sudo().decafirma_webhook_secret = 'whsec_prueba'
+        cuerpo = json.dumps({'type': 'test', 'createdAt': '2026-10-17T10:00:00Z', 'message': 'Hola desde DecaFirma'}).encode()
+        firma = 'sha256=' + hmac.new(b'whsec_prueba', cuerpo, hashlib.sha256).hexdigest()
+        r = self.url_open(f'/decafirma/webhook/{company.id}', data=cuerpo, headers={
+            'Content-Type': 'application/json', 'X-DecaFirma-Event': 'test', 'X-DecaFirma-Signature': firma})
+        self.assertEqual(r.status_code, 200)

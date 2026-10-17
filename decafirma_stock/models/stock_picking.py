@@ -45,10 +45,10 @@ class StockPicking(models.Model):
             return round((m.product_id.weight or 0.0) * (m.product_qty or cantidad(m)), 3)
 
         lineas = [{
-            'descripcion': m.product_id.display_name,
-            'referencia': m.product_id.default_code or None,
-            'bultos': int(cantidad(m)) if float(cantidad(m)).is_integer() else None,
-            'pesoKg': kilos(m) or None,
+            'description': m.product_id.display_name,
+            'reference': m.product_id.default_code or None,
+            'packages': int(cantidad(m)) if float(cantidad(m)).is_integer() else None,
+            'weightKg': kilos(m) or None,
         } for m in moves[:100]]
         peso = self.shipping_weight or sum(kilos(m) for m in moves)
         productos = moves.mapped('product_id.name')
@@ -72,7 +72,7 @@ class StockPicking(models.Model):
             'driverName': self.decafirma_driver_id.name,
             'driverTaxId': self.decafirma_driver_id.vat,
             'driverPhone': self.decafirma_driver_id.phone,
-            'lineas': lineas,
+            'lines': lineas,
         }
         if self.decafirma_carrier_id:
             c = self.decafirma_carrier_id.commercial_partner_id

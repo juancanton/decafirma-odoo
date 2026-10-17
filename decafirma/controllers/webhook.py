@@ -13,8 +13,12 @@ class DecafirmaWebhook(http.Controller):
     """Los avisos de DecaFirma (ver decafirma.com/desarrolladores, «Avisos a tu programa»).
 
     Lo primero es comprobar la firma (HMAC-SHA256 del cuerpo con el secreto de
-    la empresa): sin eso, cualquiera podría marcar un albarán como firmado. Con
-    la firma buena, se lleva el envío a Odoo como si se hubiera pedido.
+    la empresa, en «X-DecaFirma-Signature»): sin eso, cualquiera podría marcar un
+    albarán como firmado. Con la firma buena, se lleva el envío a Odoo como si se
+    hubiera pedido. El evento va en «X-DecaFirma-Event» y en «type» del cuerpo
+    (document.issued, document.updated, document.voided, delivery_note.signed,
+    service_note.signed, attachment.received, test); todos menos «test» traen el
+    envío entero en «shipment».
     """
 
     @http.route('/decafirma/webhook/<int:company_id>', type='http', auth='public', methods=['POST'], csrf=False, save_session=False)
@@ -22,7 +26,7 @@ class DecafirmaWebhook(http.Controller):
         cuerpo = request.httprequest.get_data()
         company = request.env['res.company'].sudo().browse(company_id).exists()
         secreto = company.decafirma_webhook_secret if company else None
-        firma = request.httprequest.headers.get('X-DecaFirma-Firma', '')
+        firma = request.httprequest.headers.get('X-DecaFirma-Signature', '')
         esperada = 'sha256=' + hmac.new((secreto or '').encode(), cuerpo, hashlib.sha256).hexdigest()
         if not secreto or not hmac.compare_digest(firma, esperada):
             return request.make_json_response({'error': 'firma'}, status=401)
@@ -30,7 +34,12 @@ class DecafirmaWebhook(http.Controller):
             datos = json.loads(cuerpo)
         except ValueError:
             return request.make_json_response({'error': 'json'}, status=400)
-        envio = datos.get('envio') or {}
+        if not isinstance(datos, dict):
+            return request.make_json_response({'error': 'json'}, status=400)
+        evento = datos.get('type') or request.httprequest.headers.get('X-DecaFirma-Event', '')
+        if evento == 'test':
+            return request.make_json_response({'ok': True})
+        envio = datos.get('shipment') or {}
         if envio.get('id'):
             # Como OdooBot, no como «Public user»: es quien firma lo que se escribe en el chatter.
             registro = request.env['decafirma.shipment'].with_user(SUPERUSER_ID).search(

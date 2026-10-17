@@ -1,7 +1,7 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
-from ..models.client import DecafirmaClient, DecafirmaError
+from ..models.client import DecafirmaClient, DecafirmaError, mensaje_de_error
 from ..models.decafirma_mixin import GRUPO_RESPONSABLE, GRUPO_USUARIO, comprobar_permiso
 
 
@@ -38,7 +38,7 @@ class DecafirmaWizard(models.TransientModel):
                     raise UserError(_('Pon el motivo de la anulación.'))
                 code, data = client.anular(self.document_id.deca_id, self.motivo.strip())
                 if code == 422:
-                    raise UserError(data.get('error') or _('DecaFirma no lo ha anulado.'))
+                    raise UserError(mensaje_de_error(data) or _('DecaFirma no lo ha anulado.'))
                 envio._aplicar(data)
                 return {'type': 'ir.actions.client', 'tag': 'soft_reload'}
             if not (self.correo or '').strip():

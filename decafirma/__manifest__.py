@@ -1,6 +1,6 @@
 {
     'name': 'DecaFirma Connector',
-    'version': '18.0.1.0.2',
+    'version': '18.0.1.1.0',
     'category': 'Inventory/Delivery',
     'summary': 'Connector with DecaFirma: issue the Spanish electronic control document (DeCA) with its QR code and delivery notes signed on a phone',
     'description': """

@@ -26,7 +26,7 @@ class ResConfigSettings(models.TransientModel):
             _code, data = DecafirmaClient(self.company_id).series()
         except DecafirmaError as e:
             raise UserError(str(e)) from e
-        return self._decafirma_aviso(_('DecaFirma'), _('Conectado. El próximo albarán sería el %s.', data.get('siguientePorDefecto') or '—'))
+        return self._decafirma_aviso(_('DecaFirma'), _('Conectado. El próximo albarán sería el %s.', data.get('defaultNextNumber') or '—'))
 
     def action_decafirma_conectar_avisos(self):
         """Apunta esta base de Odoo en DecaFirma para recibir los avisos al momento."""
@@ -42,14 +42,14 @@ class ResConfigSettings(models.TransientModel):
             _code, data = DecafirmaClient(self.company_id).conectar_webhook(url)
         except DecafirmaError as e:
             raise UserError(str(e)) from e
-        self.company_id.sudo().write({'decafirma_webhook_secret': data.get('secreto'), 'decafirma_webhook_url': url})
+        self.company_id.sudo().write({'decafirma_webhook_secret': data.get('secret'), 'decafirma_webhook_url': url})
         # El aviso de prueba llega en otra petición, que tiene que ver ya el
         # secreto guardado: por eso se confirma antes de pedirlo.
         self.env.cr.commit()
         try:
             _code, prueba = DecafirmaClient(self.company_id).probar_webhook()
         except DecafirmaError as e:
-            prueba = {'ok': False, 'detalle': str(e)}
+            prueba = {'ok': False, 'detail': str(e)}
         if prueba.get('ok'):
             return self._decafirma_aviso(_('DecaFirma'), _('Avisos conectados: DecaFirma ha llegado hasta Odoo.'))
         return self._decafirma_aviso(
@@ -57,7 +57,7 @@ class ResConfigSettings(models.TransientModel):
             _('Apuntado, pero el aviso de prueba no ha llegado (%(detalle)s). DecaFirma tiene que poder llegar a %(url)s '
               'desde internet (y, si el servidor tiene varias bases de datos, con dbfilter por dominio). Si no, '
               'la tarea de cada 15 minutos lo pone al día igual.',
-              detalle=prueba.get('detalle'), url=url),
+              detalle=prueba.get('detail'), url=url),
             'warning')
 
     def action_decafirma_quitar_avisos(self):
