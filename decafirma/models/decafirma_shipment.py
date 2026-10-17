@@ -6,16 +6,17 @@ from dateutil import parser as dateparser
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
-from .client import DecafirmaClient, DecafirmaError
+from .client import DecafirmaClient, DecafirmaError, mensaje_de_error
 from .decafirma_mixin import comprobar_permiso
 
 _logger = logging.getLogger(__name__)
 
+# El «status» del envío en la API ya es el de Odoo.
 ESTADOS = {
-    'borrador': 'draft',
-    'documentado': 'documented',
-    'entregado': 'delivered',
-    'cancelado': 'cancelled',
+    'draft': 'draft',
+    'documented': 'documented',
+    'delivered': 'delivered',
+    'cancelled': 'cancelled',
 }
 
 
@@ -102,7 +103,7 @@ class DecafirmaShipment(models.Model):
         return fields.Datetime.to_string(dateparser.isoparse(value).astimezone(timezone.utc).replace(tzinfo=None))
 
     def _aplicar(self, data, avisar=True):
-        """Lleva a Odoo el estado de un envío tal cual lo devuelve DecaFirma (GET /envios/:id)."""
+        """Lleva a Odoo el estado de un envío tal cual lo devuelve DecaFirma (GET /shipments/:id)."""
         self.ensure_one()
         if not data or not data.get('id'):
             return
@@ -111,34 +112,35 @@ class DecafirmaShipment(models.Model):
         self = self.sudo()
         antes_firmado = {d.deca_id: bool(d.signed_at) for d in self.document_ids}
         antes_version = {d.deca_id: d.version for d in self.document_ids}
-        ruta = data.get('ruta') or {}
+        ruta = data.get('route') or {}
         vals = {
             'deca_id': data['id'],
-            'state': ESTADOS.get(data.get('estado'), 'draft'),
-            'error': data.get('error') or False,
+            'state': ESTADOS.get(data.get('status'), 'draft'),
+            'error': mensaje_de_error(data) or False,
             'route_deca_id': ruta.get('id') or False,
-            'route_stop': ruta.get('parada') or 0,
+            'route_stop': ruta.get('stop') or 0,
         }
         comandos = []
         existentes = {d.deca_id: d for d in self.document_ids}
-        for doc in data.get('documentos') or []:
-            firmado = doc.get('firmado') or {}
+        for doc in data.get('documents') or []:
+            firmado = doc.get('signature') or {}
+            # En Odoo se guardan como siempre ('deca'/'albaran', 'vigente'/'anulado'); en la API van en inglés.
             dv = {
                 'deca_id': doc['id'],
-                'kind': 'deca' if doc.get('tipo') == 'deca' else 'albaran',
-                'reference': doc.get('referencia'),
+                'kind': 'deca' if doc.get('type') == 'deca' else 'albaran',
+                'reference': doc.get('reference'),
                 'version': doc.get('version') or 1,
-                'state': 'anulado' if doc.get('estado') == 'anulado' else 'vigente',
-                'void_reason': doc.get('motivoAnulacion') or False,
-                'is_demo': bool(doc.get('demo')),
-                'url': doc.get('url'),
-                'sign_url': doc.get('urlFirma'),
-                'pdf_url': doc.get('pdf'),
-                'issued_at': self._fecha(doc.get('emitido')),
-                'signed_at': self._fecha(firmado.get('cuando')),
-                'signed_by': firmado.get('quien'),
-                'signed_vat': firmado.get('dni'),
-                'signed_remarks': firmado.get('observaciones'),
+                'state': 'anulado' if doc.get('status') == 'voided' else 'vigente',
+                'void_reason': doc.get('voidReason') or False,
+                'is_demo': bool(doc.get('isDemo')),
+                'url': doc.get('publicUrl'),
+                'sign_url': doc.get('signUrl'),
+                'pdf_url': doc.get('pdfUrl'),
+                'issued_at': self._fecha(doc.get('issuedAt')),
+                'signed_at': self._fecha(firmado.get('signedAt')),
+                'signed_by': firmado.get('signerName'),
+                'signed_vat': firmado.get('signerTaxId'),
+                'signed_remarks': firmado.get('remarks'),
             }
             if doc['id'] in existentes:
                 comandos.append(fields.Command.update(existentes[doc['id']].id, dv))
@@ -146,7 +148,7 @@ class DecafirmaShipment(models.Model):
                 comandos.append(fields.Command.create(dv))
         if comandos:
             vals['document_ids'] = comandos
-        nuevos = self._aplicar_papeles(data.get('papeles'), vals)
+        nuevos = self._aplicar_papeles(data.get('attachments'), vals)
         self.write(vals)
         if avisar:
             self._contar_cambios(antes_firmado, antes_version)
@@ -239,9 +241,9 @@ class DecafirmaShipment(models.Model):
                 envios = set()
                 for _vuelta in range(20):
                     _code, data = client.documentos_desde(desde_iso)
-                    envios.update(d['envio'] for d in data.get('documentos') or [])
-                    desde_iso = data.get('hasta') or desde_iso
-                    if not data.get('hayMas'):
+                    envios.update(d['shipmentId'] for d in data.get('data') or [] if d.get('shipmentId'))
+                    desde_iso = data.get('until') or desde_iso
+                    if not data.get('hasMore'):
                         break
                 envios |= self._papeles_desde(company, client)
                 for s in self.sudo().search([('company_id', '=', company.id), ('deca_id', 'in', list(envios))]):
@@ -263,9 +265,9 @@ class DecafirmaShipment(models.Model):
         try:
             for _vuelta in range(20):
                 _code, data = client.papeles_desde(desde_iso)
-                envios.update(p['envio'] for p in data.get('papeles') or [] if p.get('envio'))
-                desde_iso = data.get('hasta') or desde_iso
-                if not data.get('hayMas'):
+                envios.update(p['shipmentId'] for p in data.get('data') or [] if p.get('shipmentId'))
+                desde_iso = data.get('until') or desde_iso
+                if not data.get('hasMore'):
                     break
         except DecafirmaError as e:
             _logger.info('DecaFirma: sin papeles para %s: %s', company.name, e)
