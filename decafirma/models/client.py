@@ -60,10 +60,10 @@ class DecafirmaClient:
             h['X-DecaFirma-User'] = quote(self.usuario[:80], safe=' ')
         return h
 
-    def _request(self, method, path, payload=None, params=None):
+    def _request(self, method, path, payload=None, params=None, timeout=None):
         url = f'{self.base_url}/api/v1{path}'
         try:
-            resp = requests.request(method, url, json=payload, params=params, headers=self._headers(), timeout=TIMEOUT)
+            resp = requests.request(method, url, json=payload, params=params, headers=self._headers(), timeout=timeout or TIMEOUT)
         except requests.RequestException as e:
             _logger.warning('DecaFirma %s %s: %s', method, path, e)
             raise UserError(_('No se ha podido conectar con DecaFirma (%s). Prueba otra vez en un momento.', e)) from e
@@ -114,7 +114,8 @@ class DecafirmaClient:
         return self._request('POST', f'/documents/{documento_id}/void', {'reason': motivo})
 
     def enviar(self, documento_id, correo, con_el_otro=True):
-        return self._request('POST', f'/documents/{documento_id}/send', {'email': correo, 'includeRelated': con_el_otro})
+        # Manda un correo: se le da más margen que al resto de llamadas.
+        return self._request('POST', f'/documents/{documento_id}/send', {'email': correo, 'includeRelated': con_el_otro}, timeout=60)
 
     def documentos_desde(self, desde, limite=200):
         return self._request('GET', '/documents', params={'since': desde, 'limit': limite})
