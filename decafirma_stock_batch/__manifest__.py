@@ -1,6 +1,6 @@
 {
     'name': 'DecaFirma Delivery Routes',
-    'version': '17.0.1.0.0',
+    'version': '17.0.1.1.0',
     'category': 'Inventory/Delivery',
     'summary': 'A batch of outgoing transfers is a delivery route in DecaFirma: one DeCA for all the stops',
     'description': """
