@@ -177,6 +177,13 @@ CODIGOS = {
     'invalid_webhook_url': 'La dirección de los avisos no es válida.',
 }
 
+# Los validation_error que se ven desde Odoo, por cómo empieza el mensaje de la API.
+VALIDACION = {
+    'Missing a valid email': 'El correo no es válido: revísalo.',
+    'Send the message with the shipment details': 'El texto es demasiado corto: pega el mensaje entero del encargo.',
+    'Missing the reason for voiding': 'Falta el motivo de la anulación.',
+}
+
 
 def _uno(d, mensaje_ingles):
     hacer = MOTIVOS.get(d.get('reason'))
@@ -201,7 +208,10 @@ def traducir(error):
             texto = f"No se ha emitido {DOCUMENTO[d['document']]}: {texto}"
         return texto or mensaje or code
     if code == 'validation_error':
-        # Los fallos del cuerpo: van en details, en inglés, y nombran el campo de la API.
-        detalles = ' '.join(map(str, d)) if isinstance(d, list) else ''
+        for empieza, texto in VALIDACION.items():
+            if (mensaje or '').startswith(empieza):
+                return texto
+        # Los fallos del cuerpo: van en details (o, si es uno solo, en message), en inglés y con el campo de la API.
+        detalles = ' '.join(map(str, d)) if isinstance(d, list) and d else (mensaje or '')
         return f'Datos no válidos para DecaFirma. {detalles}'.strip()
     return CODIGOS.get(code) or mensaje or code or None
