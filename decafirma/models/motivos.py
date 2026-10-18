@@ -52,6 +52,21 @@ CAMPOS = {
     'amount': 'Importe',
     'terms': 'Condiciones',
     'notes': 'Observaciones',
+    # Los de la puesta a punto (POST /sync): clientes, lugares, personas, vehículos y series.
+    'externalId': 'Referencia de Odoo',
+    'name': 'Nombre',
+    'taxId': 'NIF',
+    'address': 'Dirección',
+    'postcode': 'Código postal',
+    'city': 'Población',
+    'province': 'Provincia',
+    'phone': 'Teléfono',
+    'email': 'Correo',
+    'kind': 'Tipo de persona',
+    'role': 'Rol',
+    'format': 'Formato',
+    'driverExternalId': 'Conductor habitual',
+    'employerExternalId': 'Transportista del que depende',
 }
 
 DOCUMENTO = {'deca': 'el DeCA', 'delivery_note': 'el albarán'}
@@ -154,6 +169,19 @@ MOTIVOS = {
     'permission_denied': lambda d: 'No tienes permiso para sacar albaranes: emite la ruta sin ellos.',
     'email_recipients_limit': lambda d: f"Hoy ya se han mandado correos a {d.get('limit')} personas distintas desde esta cuenta. Mañana más.",
     'email_same_recipient_limit': lambda d: f"A {d.get('email')} ya le hemos mandado {d.get('limit')} correos hoy. Mañana más.",
+    # Los de la puesta a punto (lo que no se ha podido dejar igual que en Odoo).
+    'duplicate_external_id': lambda d: 'Va dos veces en la misma puesta a punto: vale la primera.',
+    'unknown_reference': lambda d: (
+        f"{campo(d.get('field'))}: no está en DecaFirma (o no es un transportista) ni en esta puesta a punto."),
+    'plate_taken': lambda d: f"La matrícula {d.get('plate')} ya es de otro vehículo de DecaFirma.",
+    'invalid_plate': lambda d: f"La matrícula {d.get('value')} no es válida.",
+    'invalid_format': lambda d: f"El formato {d.get('value')} no vale: {(d.get('text') or 'revísalo').rstrip('.')}.",
+    'format_taken': lambda d: f"El formato {d.get('format')} ya lo usa la serie «{d.get('series')}».",
+    'tax_id_taken': lambda d: f"El NIF {d.get('taxId')} ya es de otra persona de DecaFirma: una persona, una ficha.",
+    'tax_id_locked': lambda d: (
+        f"El NIF de la empresa en DecaFirma es {d.get('current')} y en Odoo {d.get('value')}: no se cambia nunca "
+        '(va en todo lo emitido). Si no es el mismo, ¿la clave de la API es de otra empresa?'),
+    'invite_failed': lambda d: f"Se ha dado de alta, pero la invitación no ha salido{': ' + d['text'].rstrip('.') if d.get('text') else ''}.",
     # La regla sin motivo propio: el texto de la app, que ya viene en castellano.
     'business_rule': lambda d: d.get('text'),
 }
@@ -215,3 +243,15 @@ def traducir(error):
         detalles = ' '.join(map(str, d)) if isinstance(d, list) and d else (mensaje or '')
         return f'Datos no válidos para DecaFirma. {detalles}'.strip()
     return CODIGOS.get(code) or mensaje or code or None
+
+
+def omitido(item):
+    """Por qué no se ha podido mandar un elemento de la puesta a punto ({externalId, reason, message, …}), en castellano."""
+    if not isinstance(item, dict):
+        return str(item)
+    if item.get('reason') == 'permission_denied':
+        return 'No se le puede bajar el rol a quien creó la clave de la API.'
+    if item.get('reason') == 'missing_fields':
+        campos = _campos(item) or campo(item.get('field'))
+        return f'Falta: {campos}.' if campos else (item.get('message') or 'Faltan datos.')
+    return _uno(item, item.get('message')) or item.get('reason') or ''
