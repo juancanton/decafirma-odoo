@@ -6,6 +6,10 @@ access_decafirma_document_system,decafirma.document system,decafirma.document,ba
 access_decafirma_papel_user,decafirma.papel user,decafirma.papel,base.group_user,r,
 access_decafirma_papel_system,decafirma.papel system,decafirma.papel,base.group_system,crud,
 access_decafirma_wizard_user,decafirma.wizard user,decafirma.wizard,group_decafirma_user,crud,
+access_decafirma_sync_wizard_manager,decafirma.sync.wizard manager,decafirma.sync.wizard,group_decafirma_manager,crud,
+access_decafirma_sync_link_user,decafirma.sync.link user,decafirma.sync.link,base.group_user,r,
+access_decafirma_sync_link_system,decafirma.sync.link system,decafirma.sync.link,base.group_system,crud,
 rule_decafirma_shipment_company,DecaFirma: multiempresa,decafirma.shipment,,crud,"[('company_id', 'in', company_ids)]"
 rule_decafirma_document_company,DecaFirma documentos: multiempresa,decafirma.document,,crud,"[('company_id', 'in', company_ids)]"
+rule_decafirma_sync_link_company,DecaFirma puesta a punto: multiempresa,decafirma.sync.link,,crud,"[('company_id', 'in', company_ids)]"
 rule_decafirma_papel_company,DecaFirma papeles: multiempresa,decafirma.papel,,crud,"[('company_id', 'in', company_ids)]"

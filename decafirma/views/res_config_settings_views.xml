@@ -40,6 +40,11 @@
                                 </div>
                             </div>
                         </setting>
+                        <setting string="Puesta a punto" help="Manda a DecaFirma los clientes, los lugares, la gente, los vehículos y los ajustes de Odoo: así, en la app y en el móvil, ya están. Antes de mandar se ve qué cambiaría. Se puede repetir.">
+                            <div class="content-group mt16">
+                                <button name="action_decafirma_puesta_a_punto" type="object" string="Puesta a punto" class="btn-link" icon="arrow_forward"/>
+                            </div>
+                        </setting>
                     </block>
                     <block title="Albarán" id="decafirma_albaran">
                         <setting string="Firmar el albarán de Odoo" help="Se firma el PDF del albarán de Odoo, el de siempre: DecaFirma le pone detrás su hoja con el QR y, al firmar, la conformidad. El PDF firmado vuelve solo y queda adjunto al albarán.">
@@ -47,6 +52,9 @@
                         </setting>
                         <setting string="Número del albarán de Odoo" help="El albarán de DecaFirma lleva el número del de Odoo (p. ej. WH/OUT/00012). Si no, la numeración de DecaFirma." invisible="decafirma_pdf_odoo">
                             <field name="decafirma_numero_odoo"/>
+                        </setting>
+                        <setting string="Formato del albarán en DecaFirma" help="La serie por defecto de DecaFirma: la de los albaranes que se emiten con su numeración (desde la app o desde Odoo sin el número de Odoo): [YY] o [YYYY] es el año y cada % una cifra. Vacío: ALB-2026-0001. Va a DecaFirma con la puesta a punto.">
+                            <field name="decafirma_formato_albaran" placeholder="ALB[YY]%%%%%"/>
                         </setting>
                     </block>
                 </app>

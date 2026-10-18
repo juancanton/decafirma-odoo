@@ -27,4 +27,40 @@
             </field>
         </field>
     </record>
+
+    <!-- La puesta a punto: los camiones con su chófer y los autónomos con su camión. -->
+    <record id="decafirma_sync_wizard_view_form_fleet" model="ir.ui.view">
+        <field name="name">decafirma.sync.wizard.form.fleet</field>
+        <field name="model">decafirma.sync.wizard</field>
+        <field name="inherit_id" ref="decafirma.decafirma_sync_wizard_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@id='sync_invitar']" position="before">
+                <div class="d-flex align-items-baseline gap-2 mb-2" id="sync_camiones">
+                    <field name="con_camiones" nolabel="1"/>
+                    <label for="con_camiones" class="fw-bold"/>
+                    <field name="cuanto_camiones" class="text-muted" nolabel="1"/>
+                </div>
+                <div class="d-flex align-items-baseline gap-2 mb-2" id="sync_autonomos">
+                    <field name="con_autonomos" nolabel="1"/>
+                    <label for="con_autonomos" class="fw-bold"/>
+                    <field name="cuanto_autonomos" class="text-muted" nolabel="1"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- El autónomo: en el contacto, Ventas y compras. -->
+    <record id="res_partner_form_decafirma_fleet" model="ir.ui.view">
+        <field name="name">res.partner.form.decafirma.fleet</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='sales_purchases']//group[@name='misc']" position="before">
+                <group name="decafirma_transporte" string="Transporte (DecaFirma)">
+                    <field name="decafirma_autonomo"/>
+                    <field name="decafirma_autonomo_matricula" invisible="not decafirma_autonomo" placeholder="1234KLM"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
 </odoo>

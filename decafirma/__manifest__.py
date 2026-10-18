@@ -1,6 +1,6 @@
 {
     'name': 'DecaFirma Connector',
-    'version': '20.0.1.1.0',
+    'version': '20.0.1.2.0',
     'category': 'Inventory/Delivery',
     'summary': 'Connector with DecaFirma: issue the Spanish electronic control document (DeCA) with its QR code and delivery notes signed on a phone',
     'description': """
@@ -23,13 +23,20 @@ their phone.
 * Transport papers: the photo of the consignment note or weighbridge ticket,
   with its number and net weight read by DecaFirma, attached to the origin
   and marked as invoiced in Odoo and DecaFirma (plans with papers).
+* Set-up ("Puesta a punto"): sends to DecaFirma the customers with their tax ID,
+  their delivery addresses, the office staff, the company details and the
+  issuing settings (with Inventory, the warehouses and the delivery-note
+  series; with Fleet, the trucks with their driver and the owner-drivers with
+  their truck), so the DecaFirma app has them too. It shows what would change
+  before sending and can be repeated; nothing is ever deleted.
 * Stays up to date: DecaFirma webhooks (signed, new version, cancelled)
   arrive instantly, and a scheduled action catches up every 15 minutes.
 
 Data sent to DecaFirma: nothing until you enter your own API key. Then, when
 a document is issued, corrected, cancelled or sent, the data the DeCA requires
 (names, tax IDs and addresses of company, customer, carrier and driver,
-plates, products and weights, and the delivery slip PDF to be signed).
+plates, products and weights, and the delivery slip PDF to be signed); and,
+only when you run the set-up, what you tick in it.
 
 Used by `decafirma_stock` (outgoing transfers and batches) and `tms_deca`.
 Requires a DecaFirma account: the API is included in the 7-day free trial and,
@@ -47,6 +54,7 @@ after it, in any plan with the Connection add-on.
         'security/ir.access.csv',
         'data/ir_cron.xml',
         'wizard/decafirma_wizard_views.xml',
+        'wizard/decafirma_sync_wizard_views.xml',
         'views/decafirma_shipment_views.xml',
         'views/decafirma_papel_views.xml',
         'views/res_config_settings_views.xml',

@@ -161,6 +161,14 @@ class DecafirmaClient:
             cuerpo['seriesId'] = serie
         return self._request('POST', f'/routes/{ruta_id}/delivery-notes', cuerpo)
 
+    # Puesta a punto: clientes, lugares, personas, vehículos, series y ajustes, como en Odoo
+    def sincronizar(self, payload):
+        # Hasta 500 elementos por llamada: más margen que el resto.
+        return self._request('POST', '/sync', payload, timeout=60)
+
+    def estado_sincronizacion(self):
+        return self._request('GET', '/sync', timeout=60)
+
     # Avisos
     def conectar_webhook(self, url):
         return self._request('POST', '/webhook', {'url': url})

@@ -522,3 +522,216 @@ class TestDecafirmaMotivos(TransactionCase):
         self.assertEqual(mensaje_de_error(nuevo), 'Something new.')
         self.assertIn('Ajustes > DecaFirma', mensaje_de_error({'error': {'code': 'invalid_api_key', 'message': 'x'}}))
         self.assertIsNone(mensaje_de_error({'id': 'x'}))
+
+
+class SyncFalso:
+    """Un DecaFirma de mentira para POST /sync: guarda lo mandado (salvo con dryRun) y contesta como el de verdad."""
+
+    def __init__(self, malos=()):
+        self.llamadas, self.guardado, self.malos = [], {}, set(malos)
+
+    def __call__(self, metodo, ruta, payload=None, params=None, timeout=None):
+        # patch.object con un objeto (no una función): no recibe el cliente.
+        assert (metodo, ruta) == ('POST', '/sync'), (metodo, ruta)
+        self.llamadas.append(json.loads(json.dumps(payload)))
+        r = {'dryRun': payload.get('dryRun')}
+        if 'company' in payload:
+            antes = self.guardado.get('company') or {}
+            r['company'] = {'updated': sorted(k for k, v in payload['company'].items() if antes.get(k) != v)}
+        if 'settings' in payload:
+            antes = self.guardado.get('settings') or {}
+            r['settings'] = {'updated': sorted(k for k, v in payload['settings'].items() if antes.get(k) != v)}
+        for tipo in ('series', 'customers', 'places', 'people', 'vehicles'):
+            if tipo not in payload:
+                continue
+            g = self.guardado.setdefault(tipo, {})
+            t = r[tipo] = {'created': 0, 'updated': 0, 'unchanged': 0, 'archived': 0, 'skipped': [], 'ids': {}}
+            for x in payload[tipo]:
+                e = x['externalId']
+                if x.get('taxId') in self.malos:
+                    t['skipped'].append({'externalId': e, 'reason': 'invalid_tax_id', 'field': 'taxId',
+                                         'value': x['taxId'], 'message': 'Invalid tax ID.'})
+                    continue
+                antes = g.get(e)
+                clave = 'unchanged' if antes == x else ('archived' if x.get('archived') else ('updated' if antes else 'created'))
+                t[clave] += 1
+                t['ids'][e] = 'dc_' + e.replace(':', '_')
+                if not payload.get('dryRun'):
+                    g[e] = x
+        if not payload.get('dryRun'):
+            for k in ('company', 'settings'):
+                if k in payload:
+                    self.guardado[k] = payload[k]
+        return 200, r
+
+
+@tagged('post_install', '-at_install')
+class TestDecafirmaSync(DecafirmaComun):
+    """La puesta a punto: lo de Odoo, a DecaFirma."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.company.partner_id.write({'street': 'Carrer Major 1', 'zip': '08202', 'city': 'Sabadell', 'phone': '937000000'})
+        Partner = cls.env['res.partner']
+        cls.con_nif = Partner.create({'name': 'Hierros del Vallès SL', 'is_company': True, 'vat': 'ESB66778899',
+                                      'city': 'Terrassa', 'zip': '08221', 'street': 'Av. Industria 5'})
+        cls.sin_nif = Partner.create({'name': 'Bar Paco', 'is_company': True, 'city': 'Rubí'})
+        cls.entrega = Partner.create({'name': 'Nave 2', 'type': 'delivery', 'parent_id': cls.con_nif.id,
+                                      'street': 'Polígono Sur 3', 'city': 'Terrassa', 'zip': '08223'})
+        cls.cliente.vat = 'A08001851'
+        # Que sean clientes: se les ha entregado algo.
+        for p in (cls.con_nif, cls.sin_nif, cls.cliente):
+            cls.env['stock.picking'].create({
+                'picking_type_id': cls.wh.out_type_id.id, 'partner_id': p.id, 'location_id': cls.wh.lot_stock_id.id,
+                'location_dest_id': cls.env.ref('stock.stock_location_customers').id})
+
+    def _wizard(self, **vals):
+        return self.env['decafirma.sync.wizard'].create(dict({'company_id': self.company.id}, **vals))
+
+    def test_ver_y_mandar(self):
+        falso = SyncFalso()
+        w = self._wizard()
+        # Con los datos de demostración (17) hay más clientes: se cuenta lo que hay.
+        datos = w._sync_datos()
+        n = len(datos['customers'])
+        self.assertIn('Bar Paco', [nombre for nombre, _m in datos['fuera']['customers']], 'sin NIF')
+        self.assertIn(f'{n} con NIF', w.cuanto_clientes)
+        self.assertIn(f"({len(datos['fuera']['customers'])} no se mandan)", w.cuanto_clientes)
+        with patch.object(DecafirmaClient, '_request', falso):
+            w.action_ver()
+            self.assertEqual(w.paso, 'ver')
+            self.assertTrue(falso.llamadas[0]['dryRun'], 'primero, ver sin guardar nada')
+            self.assertFalse(self.env['decafirma.sync.link'].search([]), 'ver no guarda nada en Odoo')
+            w.action_mandar()
+        self.assertEqual(w.paso, 'hecho')
+        cuerpo = falso.llamadas[1]
+        self.assertFalse(cuerpo['dryRun'])
+        clientes = {c['externalId']: c for c in cuerpo['customers']}
+        self.assertEqual(clientes[f'odoo:res.partner:{self.con_nif.id}']['taxId'], 'B66778899', 'el NIF sin el ES')
+        self.assertEqual(clientes[f'odoo:res.partner:{self.con_nif.id}']['city'], 'Terrassa')
+        self.assertIn(f'odoo:res.partner:{self.cliente.id}', clientes)
+        self.assertNotIn(f'odoo:res.partner:{self.sin_nif.id}', clientes, 'sin NIF no se manda')
+        self.assertNotIn(f'odoo:res.partner:{self.company.partner_id.id}', clientes, 'la propia empresa no es cliente')
+        lugares = {p['externalId']: p for p in cuerpo['places']}
+        self.assertEqual(lugares[f'odoo:res.partner:{self.entrega.id}']['name'], 'Hierros del Vallès SL - Nave 2')
+        self.assertIn(f'odoo:stock.warehouse:{self.wh.id}', lugares, 'el almacén, como lugar')
+        self.assertEqual(cuerpo['company']['legalName'], self.company.name)
+        self.assertEqual(cuerpo['company']['taxId'], 'B12345674')
+        self.assertEqual(cuerpo['company']['city'], 'Sabadell')
+        self.assertEqual(cuerpo['settings'], {'manualDeliveryNoteNumber': False})
+        self.assertFalse([p for p in cuerpo.get('people', []) if p['kind'] == 'office'], 'la gente de oficina, solo si se marca')
+        self.assertNotIn('series', cuerpo, 'las series, solo si se marcan')
+        self.assertIn('Bar Paco', w.resumen)
+        self.assertIn('Sin NIF', w.resumen)
+        self.assertIn('cambiado: razón social', w.resumen, 'los datos de la empresa: manda Odoo')
+        link = self.env['decafirma.sync.link'].search([('external_id', '=', f'odoo:res.partner:{self.con_nif.id}')])
+        self.assertEqual(link.deca_id, f'dc_odoo_res.partner_{self.con_nif.id}')
+        self.assertIn('Puesta a punto de DecaFirma', self.company.partner_id.message_ids[0].body)
+
+        # Repetir: todo sin cambios y nada se toca en Odoo.
+        escrito = {lk.id: lk.write_date for lk in self.env['decafirma.sync.link'].search([])}
+        fecha_cliente = self.con_nif.write_date
+        w2 = self._wizard()
+        with patch.object(DecafirmaClient, '_request', falso):
+            w2.action_mandar()
+        r = falso.llamadas[-1]
+        self.assertEqual(len(r['customers']), n)
+        self.assertEqual({lk.id: lk.write_date for lk in self.env['decafirma.sync.link'].search([])}, escrito)
+        self.assertEqual(self.con_nif.write_date, fecha_cliente)
+        self.assertIn(f'<td>0</td><td>0</td><td>{n}</td>', w2.resumen.replace(' ', ''), 'todo sin cambios')
+        self.assertIn('Datos de la empresa</td><td colspan="5">sin cambios', w2.resumen)
+
+        # Cambia el teléfono en Odoo: solo eso cambia en DecaFirma.
+        self.company.partner_id.phone = '938888888'
+        w4 = self._wizard(con_clientes=False, con_lugares=False)
+        with patch.object(DecafirmaClient, '_request', falso):
+            w4.action_ver()
+        self.assertIn('cambia: teléfono', w4.resumen)
+
+        # Se archiva un cliente en Odoo: se archiva en DecaFirma.
+        self.cliente.active = False
+        w3 = self._wizard()
+        with patch.object(DecafirmaClient, '_request', falso):
+            w3.action_mandar()
+        archivado = [c for c in falso.llamadas[-1]['customers'] if c['externalId'] == f'odoo:res.partner:{self.cliente.id}']
+        self.assertTrue(archivado and archivado[0]['archived'], 'archivado en Odoo, archivado en DecaFirma')
+
+    def test_lo_que_se_vacia_en_odoo_se_vacia_en_decafirma(self):
+        falso = SyncFalso()
+        self.con_nif.phone = '931234567'
+        with patch.object(DecafirmaClient, '_request', falso):
+            self._wizard(con_lugares=False).action_mandar()
+            self.con_nif.phone = False
+            self._wizard(con_lugares=False).action_mandar()
+        ext = f'odoo:res.partner:{self.con_nif.id}'
+        item = [c for c in falso.llamadas[-1]['customers'] if c['externalId'] == ext][0]
+        self.assertIsNone(item['phone'], 'el teléfono que vino de Odoo y ya no está: null')
+        self.assertNotIn('email', item, 'lo que nunca vino de Odoo no se toca')
+
+    def test_formato_del_albaran(self):
+        from odoo.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            self.company.decafirma_formato_albaran = 'ALB%%-%%'
+        self.company.decafirma_formato_albaran = 'alb[yy]%%%%%'
+        falso = SyncFalso()
+        w = self._wizard(con_clientes=False, con_lugares=False, con_empresa=False)
+        with patch.object(DecafirmaClient, '_request', falso):
+            w.action_ver()
+        self.assertEqual(falso.llamadas[0]['settings'], {'manualDeliveryNoteNumber': False, 'deliveryNoteFormat': 'ALB[YY]%%%%%'})
+        self.assertIn('formato del número del albarán', w.resumen)
+
+    def test_nif_malo_se_dice_en_castellano(self):
+        falso = SyncFalso(malos={'B66778899'})
+        w = self._wizard(con_lugares=False, con_empresa=False, con_ajustes=False)
+        with patch.object(DecafirmaClient, '_request', falso):
+            w.action_ver()
+        self.assertIn('Hierros del Vallès SL', w.resumen)
+        self.assertIn('El NIF (B66778899) no es válido', w.resumen)
+
+    def test_series_y_oficina(self):
+        falso = SyncFalso()
+        self.env.ref('base.user_admin').email = 'admin@test.es'
+        self.wh.out_type_id.sequence_id.write({'prefix': 'ALB/%(year)s/', 'padding': 5, 'suffix': False})
+        w = self._wizard(con_series=True, con_oficina=True, invitar=True, con_clientes=False, con_lugares=False)
+        with patch.object(DecafirmaClient, '_request', falso):
+            w.action_ver()
+        cuerpo = falso.llamadas[0]
+        serie = [s for s in cuerpo['series'] if s['externalId'] == f'odoo:stock.picking.type:{self.wh.out_type_id.id}']
+        self.assertEqual(serie[0]['format'], 'ALB/[YYYY]/%%%%%')
+        self.assertEqual(serie[0]['nextNumber'], self.wh.out_type_id.sequence_id.number_next_actual, 'con su contador')
+        admin = [p for p in cuerpo['people'] if p['externalId'] == f'odoo:res.users:{self.env.ref("base.user_admin").id}']
+        self.assertEqual((admin[0]['kind'], admin[0]['role']), ('office', 'admin'))
+        self.assertEqual(admin[0].get('invite'), bool(admin[0].get('email')), 'invitar, solo con correo')
+
+    def test_por_tandas(self):
+        """Más de 500: varias llamadas, y el resumen las suma."""
+        falso = SyncFalso()
+        self.env['res.partner'].create([{'name': f'Cliente {i}', 'is_company': True, 'vat': 'B66778899',
+                                         'customer_rank': 1} if 'customer_rank' in self.env['res.partner']._fields
+                                        else {'name': f'Cliente {i}', 'is_company': True, 'vat': 'B66778899'}
+                                        for i in range(600)])
+        w = self._wizard(con_lugares=False)
+        datos = w._sync_datos()
+        if len(datos['customers']) <= 500:
+            self.skipTest('sin Facturación, los clientes salen de los albaranes')
+        with patch.object(DecafirmaClient, '_request', falso):
+            w.action_ver()
+        self.assertGreaterEqual(len(falso.llamadas), 2)
+        self.assertTrue(all(len(c.get('customers', [])) <= 500 for c in falso.llamadas))
+        self.assertIn('company', falso.llamadas[0])
+        self.assertNotIn('company', falso.llamadas[1])
+
+    def test_sin_permiso_no_manda(self):
+        usuario = self.env['res.users'].create({'name': 'Emisor', 'login': 'emisor_sync',
+                                                'group_ids' if 'group_ids' in self.env['res.users']._fields else 'groups_id':
+                                                [(6, 0, [self.env.ref('decafirma.group_decafirma_user').id])]})
+        with self.assertRaises(AccessError):
+            self._wizard().with_user(usuario).action_ver()
+
+    def test_motivos_de_la_puesta_a_punto(self):
+        from odoo.addons.decafirma.models.motivos import omitido
+        self.assertEqual(omitido({'reason': 'missing_fields', 'fields': ['name', 'city']}), 'Falta: Nombre, Población.')
+        self.assertEqual(omitido({'reason': 'plate_taken', 'plate': '1234KLM'}), 'La matrícula 1234KLM ya es de otro vehículo de DecaFirma.')
+        self.assertIn('Conductor habitual', omitido({'reason': 'unknown_reference', 'field': 'driverExternalId', 'value': 'x'}))
+        self.assertEqual(omitido({'reason': 'nuevo', 'message': 'Brand new.'}), 'Brand new.')

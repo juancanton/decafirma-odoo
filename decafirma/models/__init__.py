@@ -5,3 +5,4 @@ from . import decafirma_document
 from . import decafirma_papel
 from . import decafirma_shipment
 from . import decafirma_mixin
+from . import decafirma_sync_link
