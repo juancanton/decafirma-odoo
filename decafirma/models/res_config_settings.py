@@ -13,6 +13,7 @@ class ResConfigSettings(models.TransientModel):
     decafirma_last_sync = fields.Datetime(related='company_id.decafirma_last_sync')
     decafirma_numero_odoo = fields.Boolean(related='company_id.decafirma_numero_odoo', readonly=False)
     decafirma_pdf_odoo = fields.Boolean(related='company_id.decafirma_pdf_odoo', readonly=False)
+    decafirma_formato_albaran = fields.Char(related='company_id.decafirma_formato_albaran', readonly=False)
 
     def _decafirma_aviso(self, titulo, mensaje, tipo='success'):
         return {'type': 'ir.actions.client', 'tag': 'display_notification',
@@ -67,6 +68,13 @@ class ResConfigSettings(models.TransientModel):
         except DecafirmaError as e:
             raise UserError(str(e)) from e
         self.company_id.sudo().write({'decafirma_webhook_secret': False, 'decafirma_webhook_url': False})
+
+    def action_decafirma_puesta_a_punto(self):
+        """Abre la puesta a punto: lo de Odoo (clientes, lugares, gente, vehículos…) a DecaFirma."""
+        self.ensure_one()
+        self.execute()
+        wizard = self.env['decafirma.sync.wizard'].create({'company_id': self.company_id.id})
+        return wizard._reabrir()
 
     def action_decafirma_poner_al_dia(self):
         self.ensure_one()

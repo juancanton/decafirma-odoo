@@ -6,3 +6,6 @@ access_decafirma_document_system,decafirma.document system,model_decafirma_docum
 access_decafirma_wizard_user,decafirma.wizard user,model_decafirma_wizard,group_decafirma_user,1,0,1,1
 access_decafirma_papel_user,decafirma.papel user,model_decafirma_papel,base.group_user,1,0,0,0
 access_decafirma_papel_system,decafirma.papel system,model_decafirma_papel,base.group_system,1,1,1,1
+access_decafirma_sync_wizard_manager,decafirma.sync.wizard manager,model_decafirma_sync_wizard,group_decafirma_manager,1,1,1,1
+access_decafirma_sync_link_user,decafirma.sync.link user,model_decafirma_sync_link,base.group_user,1,0,0,0
+access_decafirma_sync_link_system,decafirma.sync.link system,model_decafirma_sync_link,base.group_system,1,1,1,1

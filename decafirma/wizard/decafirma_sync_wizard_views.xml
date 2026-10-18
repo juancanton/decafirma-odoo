@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="decafirma_sync_wizard_view_form" model="ir.ui.view">
+        <field name="name">decafirma.sync.wizard.form</field>
+        <field name="model">decafirma.sync.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <field name="paso" invisible="1"/>
+                <field name="company_id" invisible="1"/>
+                <div invisible="paso != 'elegir'">
+                    <p>
+                        Deja DecaFirma con lo que hay en Odoo: así, al emitir desde la app o el móvil, los clientes, los lugares,
+                        los camiones y la gente ya están. No se borra nada: lo archivado en Odoo se archiva en DecaFirma.
+                        Se puede repetir cuando quieras; lo que ya está igual no se toca.
+                    </p>
+                    <div id="decafirma_sync_que" class="mt-3">
+                        <div class="d-flex align-items-baseline gap-2 mb-2" id="sync_empresa">
+                            <field name="con_empresa" nolabel="1"/>
+                            <label for="con_empresa" class="fw-bold"/>
+                            <field name="cuanto_empresa" class="text-muted" nolabel="1"/>
+                            <span class="text-muted">· como en Odoo; lo vacío aquí no se borra allí</span>
+                        </div>
+                        <div class="d-flex align-items-baseline gap-2 mb-2" id="sync_ajustes">
+                            <field name="con_ajustes" nolabel="1"/>
+                            <label for="con_ajustes" class="fw-bold"/>
+                            <field name="cuanto_ajustes" class="text-muted" nolabel="1"/>
+                        </div>
+                        <div class="d-flex align-items-baseline gap-2 mb-2" id="sync_series">
+                            <field name="con_series" nolabel="1"/>
+                            <label for="con_series" class="fw-bold"/>
+                            <field name="cuanto_series" class="text-muted" nolabel="1"/>
+                        </div>
+                        <div class="d-flex align-items-baseline gap-2 mb-2" id="sync_clientes">
+                            <field name="con_clientes" nolabel="1"/>
+                            <label for="con_clientes" class="fw-bold"/>
+                            <field name="cuanto_clientes" class="text-muted" nolabel="1"/>
+                        </div>
+                        <div class="d-flex align-items-baseline gap-2 mb-2" id="sync_lugares">
+                            <field name="con_lugares" nolabel="1"/>
+                            <label for="con_lugares" class="fw-bold"/>
+                            <field name="cuanto_lugares" class="text-muted" nolabel="1"/>
+                        </div>
+                        <div class="d-flex align-items-baseline gap-2 mb-2" id="sync_oficina">
+                            <field name="con_oficina" nolabel="1"/>
+                            <label for="con_oficina" class="fw-bold"/>
+                            <field name="cuanto_oficina" class="text-muted" nolabel="1"/>
+                        </div>
+                        <div class="d-flex align-items-baseline gap-2 mt-3" id="sync_invitar">
+                            <field name="invitar" nolabel="1"/>
+                            <label for="invitar" class="fw-bold"/>
+                            <span class="text-muted">· solo a quien tenga correo; si no, desde DecaFirma &gt; Equipo</span>
+                        </div>
+                    </div>
+                </div>
+                <div invisible="paso == 'elegir'">
+                    <field name="resumen" nolabel="1"/>
+                </div>
+                <footer>
+                    <button name="action_ver" type="object" string="Ver antes de mandar" class="btn-primary" invisible="paso != 'elegir'"/>
+                    <button name="action_mandar" type="object" string="Mandar" class="btn-primary" invisible="paso != 'ver'"/>
+                    <button name="action_volver" type="object" string="Atrás" invisible="paso != 'ver'"/>
+                    <button name="action_volver" type="object" string="Otra puesta a punto" invisible="paso != 'hecho'"/>
+                    <button string="Cerrar" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="decafirma_sync_wizard_action" model="ir.actions.act_window">
+        <field name="name">Puesta a punto de DecaFirma</field>
+        <field name="res_model">decafirma.sync.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>
