@@ -1,6 +1,6 @@
 {
     'name': 'DecaFirma Inventory',
-    'version': '18.0.1.1.0',
+    'version': '18.0.1.2.0',
     'category': 'Inventory/Delivery',
     'summary': 'Issue the Spanish DeCA and the signed delivery note from the outgoing transfer in Inventory',
     'description': """
