@@ -9,7 +9,7 @@
             <xpath expr="//form" position="inside">
                 <app data-string="DecaFirma" id="decafirma" string="DecaFirma" name="decafirma" groups="base.group_system">
                     <block title="Conexión" id="decafirma_conexion">
-                        <setting string="Clave de la API" help="Se crea en DecaFirma: Configuración &gt; Conectar tu programa (API). Empieza por dfk_. En la prueba de 7 días va incluida; después, con el extra Conexión de DecaFirma.">
+                        <setting string="Clave de la API" help="Se crea en DecaFirma: Configuración &gt; Conectar tu programa (API). Empieza por dfk_. En el primer mes gratis va incluida; después, con el extra Conexión de DecaFirma.">
                             <div class="content-group mt16">
                                 <div class="row">
                                     <label for="decafirma_api_key" string="Clave" class="col-lg-3 o_light_label"/>
